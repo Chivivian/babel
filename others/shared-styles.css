@@ -44,7 +44,7 @@
   box-shadow: var(--shadow-glass);
   position: relative;
   overflow: hidden;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
 }
 
 .glass-panel-low {
@@ -85,7 +85,7 @@
   overflow: hidden;
   border-radius: 9999px;
   padding: 2px;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
 }
 
 .btn-border-beam:active {
@@ -133,7 +133,7 @@
   padding: 0.75rem 2rem;
   font-weight: 600;
   color: white;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   cursor: pointer;
 }
 
@@ -260,7 +260,7 @@
   border-radius: 0.75rem;
   color: white;
   padding: 0.75rem 1rem;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
 }
 
 .glass-input:focus,
@@ -346,18 +346,7 @@
 
 /* === HOVER LIFT EFFECT === */
 .hover-lift {
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-elegant {
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-elegant:hover {
-  transform: scale(1.005);
-  /* Very subtle scale for elegance */
-  background: rgba(255, 255, 255, 0.03);
-  /* Smoother background change */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .hover-lift:hover {
@@ -373,7 +362,7 @@
   border: 1px solid var(--border-glass);
   border-radius: 1rem;
   padding: 1.5rem;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 }
@@ -400,7 +389,7 @@
   border-radius: 1rem;
   position: relative;
   overflow: hidden;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   box-shadow: var(--shadow-glass), inset 0 1px 1px rgba(255, 255, 255, 0.05);
   /* Constrain card heights */
   max-height: 280px;
@@ -410,8 +399,6 @@
   background: rgba(13, 2, 33, 0.6);
   border-color: var(--border-glass-hover);
   box-shadow: var(--shadow-glass-hover), inset 0 1px 1px rgba(255, 255, 255, 0.08);
-  transform: translateY(-2px);
-  /* Added subtle lift */
 }
 
 /* === TEXT GLOW === */
