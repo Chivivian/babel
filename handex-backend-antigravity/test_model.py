@@ -1,7 +1,12 @@
 import openai
 import os
 
-api_key = "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"
+api_key = os.environ.get("OPENAI_API_KEY")
+
+if not api_key:
+    print("Error: OPENAI_API_KEY environment variable is not set")
+    print("Set it with: export OPENAI_API_KEY='your-key-here'")
+    exit(1)
 
 client = openai.OpenAI(api_key=api_key)
 
