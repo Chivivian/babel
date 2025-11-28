@@ -4,22 +4,9 @@
 1. Set your OpenAI API key as an environment variable:
    ```bash
    export OPENAI_API_KEY="your-api-key-here"
-   ```
-
-## Starting the System
-
-### 1. Start the Backend Server
-```bash
-cd /Users/vaheaslanyan/Documents/Apps/Handex/handex-backend-antigravity
-python3 server.py
-```
-
-The server will start on `http://localhost:8000`
-
-### 2. Open the Dashboard
 Open the following file in your browser:
 ```
-/Users/vaheaslanyan/Documents/Apps/Handex/dashboard/upload-page/index.html
+/Users/lunartech/Documents/Apps/Handex/dashboard/upload-page/index.html
 ```
 
 ## Using the Application

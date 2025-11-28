@@ -15,7 +15,7 @@ Based on the backend logs, I can see:
 
 ### Step 1: Make Sure Backend is Running
 ```bash
-cd /Users/vaheaslanyan/Documents/Apps/Handex/handex-backend-antigravity
+cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity
 export OPENAI_API_KEY="your-api-key-here"
 python3 server.py
 ```
@@ -33,7 +33,7 @@ Visit: `http://localhost:8000`
 ### Step 4: Check for Translated File
 While waiting, you can manually check:
 ```bash
-cd /Users/vaheaslanyan/Documents/Apps/Handex/handex-backend-antigravity/Outputs
+cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity/Outputs
 ls -lt  # Shows newest files first
 ```
 

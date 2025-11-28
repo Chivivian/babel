@@ -4,7 +4,7 @@
 
 1. **Open Terminal** and navigate to the server directory:
    ```bash
-   cd /Users/vaheaslanyan/Documents/Apps/Handex/handex-backend-antigravity
+   cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity
    ```
 
 2. **Start the server**:
@@ -14,7 +14,7 @@
 
 3. **You should see**:
    ```
-   ✓ Static files mounted at /static from /Users/vaheaslanyan/Documents/Apps/Handex/dashboard
+   ✓ Static files mounted at /static from /Users/lunartech/Documents/Apps/Handex/dashboard
    INFO:     Started server process [xxxxx]
    INFO:     Waiting for application startup.
    INFO:     Application startup complete.
