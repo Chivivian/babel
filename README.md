@@ -43,6 +43,22 @@ Babel is the result of a visionary collaboration led by **LunarTech**. We have p
 - **Preserves Formatting**: Maintains the original layout, styling, and structure of your documents.
 - **Multi-Format Support**: Seamlessly handles PDF, DOCX, and other major document formats.
 - **Powered by GenAI**: Utilizes the latest advancements in Large Language Models for unmatched accuracy.
+- **Broad Language Support**: Supports translation across 22 major languages.
+
+## 🌐 Supported Languages
+
+Babel currently supports high-quality translation for the following 22 languages:
+
+| | | |
+|:---:|:---:|:---:|
+| English | Chinese (中文) | Hindi (हिन्दी) |
+| Arabic (العربية) | Russian (Русский) | Armenian (Հայերեն) |
+| Japanese (日本語) | German (Deutsch) | Dutch (Nederlands) |
+| Italian (Italiano) | French (Français) | Spanish (Español) |
+| Portuguese (Português) | Korean (한국어) | Turkish (Türkçe) |
+| Polish (Polski) | Vietnamese (Tiếng Việt) | Ukrainian (Українська) |
+| Romanian (Română) | Thai (ไทย) | Javanese (Jawa) |
+| Punjabi (ਪੰਜਾਬੀ) | | |
 
 ## 🔄 How It Works
 
