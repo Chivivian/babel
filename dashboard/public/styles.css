@@ -283,12 +283,12 @@
 /* === GLASS INPUTS === */
 .glass-input,
 .glass-select {
-  background: var(--glass-medium);
+  background: var(--glass-medium) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-glass);
+  border: 1px solid var(--border-glass) !important;
   border-radius: 0.75rem;
-  color: white;
+  color: white !important;
   padding: 0.75rem 1rem;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }

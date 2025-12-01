@@ -40,7 +40,7 @@
       },
     }
   </script>
-  <link rel="stylesheet" href="../../public/styles.css">
+  <link rel="stylesheet" href="/dashboard/public/styles.css?v=2">
 </head>
 
 <body
@@ -61,11 +61,11 @@
 
         <!-- Desktop Nav -->
         <nav class="hidden md:flex items-center gap-8">
-          <a href="/static/index.html"
+          <a href="/dashboard/index.html"
             class="text-sm font-medium text-slate-400 hover:text-white transition-colors">Dashboard</a>
-          <a href="/static/my-translations/index.html"
+          <a href="/dashboard/my-translations/index.html"
             class="text-sm font-medium text-slate-400 hover:text-white transition-colors">My Translations</a>
-          <a href="/static/upload-page/index.html"
+          <a href="/dashboard/upload-page/index.html"
             class="text-sm font-medium text-slate-400 hover:text-white transition-colors">Upload New</a>
         </nav>
 
@@ -74,7 +74,7 @@
           <button class="text-slate-400 hover:text-white transition-colors">
             <span class="material-symbols-outlined">notifications</span>
           </button>
-          <a href="/static/account/index.html"
+          <a href="/dashboard/account/index.html"
             class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 transition-colors">
             <span class="material-symbols-outlined text-lg">account_circle</span>
             <span class="hidden sm:inline">Account</span>
@@ -91,12 +91,13 @@
     <div id="mobile-menu"
       class="fixed inset-0 z-40 bg-[#0A0118]/95 backdrop-blur-xl transform translate-x-full transition-transform duration-300 md:hidden pt-24 px-6">
       <nav class="flex flex-col gap-4">
-        <a href="/static/index.html" class="text-lg font-medium text-white py-2 border-b border-white/10">Dashboard</a>
-        <a href="/static/my-translations/index.html"
+        <a href="/dashboard/index.html"
+          class="text-lg font-medium text-white py-2 border-b border-white/10">Dashboard</a>
+        <a href="/dashboard/my-translations/index.html"
           class="text-lg font-medium text-slate-300 py-2 border-b border-white/10">My Translations</a>
-        <a href="/static/upload-page/index.html"
+        <a href="/dashboard/upload-page/index.html"
           class="text-lg font-medium text-slate-300 py-2 border-b border-white/10">Upload New</a>
-        <a href="/static/account/index.html"
+        <a href="/dashboard/account/index.html"
           class="text-lg font-medium text-slate-300 py-2 border-b border-white/10">Settings</a>
       </nav>
     </div>
@@ -119,7 +120,7 @@
               <p class="text-xs text-white/60 mt-1">Member since January 2024</p>
             </div>
             <button
-              class="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-purple text-sm font-medium text-white transition-all hover:bg-primary-purple-bright hover-lift">
+              class="flex items-center gap-2 px-4 py-2 rounded-full bg-primary-purple text-sm font-medium text-white transition-all hover:bg-primary-purple-bright hover-lift shadow-[0_0_15px_rgba(168,85,247,0.3)]">
               <span class="material-symbols-outlined text-base">edit</span>
               Edit Profile
             </button>
@@ -154,7 +155,7 @@
                 <h3 class="text-base font-medium text-white mb-1">Password</h3>
                 <p class="text-sm text-white/70">Last changed 30 days ago</p>
               </div>
-              <a href="change-password/index.html" class="btn-glass-secondary">
+              <a href="change-password/index.html" class="btn-glass-secondary rounded-full">
                 Change Password
               </a>
             </div>
@@ -164,8 +165,7 @@
                 <h3 class="text-base font-medium text-white mb-1">Two-Factor Authentication</h3>
                 <p class="text-sm text-white/70">Add an extra layer of security</p>
               </div>
-              <a href="enable-2fa/index.html"
-                class="px-4 py-2 rounded-lg bg-primary-purple text-sm font-medium text-white hover:bg-primary-purple-bright transition-colors inline-block hover-lift">
+              <a href="enable-2fa/index.html" class="btn-glass-secondary rounded-full">
                 Enable 2FA
               </a>
             </div>
@@ -175,7 +175,7 @@
                 <h3 class="text-base font-medium text-white mb-1">Active Sessions</h3>
                 <p class="text-sm text-white/70">3 devices currently signed in</p>
               </div>
-              <a href="active-sessions/index.html" class="btn-glass-secondary">
+              <a href="active-sessions/index.html" class="btn-glass-secondary rounded-full">
                 View All
               </a>
             </div>
@@ -224,7 +224,7 @@
                 <p class="text-sm text-white/70">Permanently delete your account and all data</p>
               </div>
               <a href="delete-account/index.html"
-                class="px-4 py-2 rounded-lg bg-red-500 text-sm font-medium text-white hover:bg-red-600 transition-colors inline-block hover-lift">
+                class="px-4 py-2 rounded-full bg-red-500 text-sm font-medium text-white hover:bg-red-600 transition-colors inline-block hover-lift shadow-[0_0_15px_rgba(239,68,68,0.3)]">
                 Delete Account
               </a>
             </div>
@@ -232,11 +232,11 @@
         </div>
 
         <div class="flex justify-end gap-4 mt-8">
-          <button class="btn-glass-secondary">
+          <button class="btn-glass-secondary rounded-full">
             Cancel
           </button>
           <button
-            class="px-6 py-2 rounded-lg bg-primary-purple text-sm font-medium text-white transition-all hover:bg-primary-purple-bright hover-lift shadow-[0_0_20px_rgba(168,85,247,0.4)]">
+            class="px-6 py-2 rounded-full bg-primary-purple text-sm font-medium text-white transition-all hover:bg-primary-purple-bright hover-lift shadow-[0_0_20px_rgba(168,85,247,0.4)]">
             Save Changes
           </button>
         </div>
