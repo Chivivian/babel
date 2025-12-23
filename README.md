@@ -18,7 +18,9 @@
 
 In an era where information is abundant but often siloed by language, **Babel** stands as a bridge. We believe that knowledge should be universally accessible, regardless of the language it was originally written in.
 
-Babel is not just a translation tool; it is a **human augmentation system**. By leveraging state-of-the-art Generative AI, we empower individuals to tap into vast knowledge reservoirs that were previously out of reach. Whether it's technical documentation, literary masterpieces, or academic research, Babel ensures that language is no longer a barrier to understanding.
+Babel is a powerful **document translation tool** that combines **Agentic OCR** with cutting-edge **Large Language Models (LLMs)** to deliver highly accurate translations. Unlike conventional translation services, Babel preserves the original formatting, layout, and structure of your documents—ensuring that complex PDFs with tables, charts, headers, and multi-column layouts are translated seamlessly.
+
+By leveraging state-of-the-art Generative AI and intelligent optical character recognition, we empower individuals to tap into vast knowledge reservoirs that were previously out of reach. Whether it's technical documentation, literary masterpieces, or academic research, Babel ensures that language is no longer a barrier to understanding.
 
 ## 🚀 Mission
 
@@ -39,10 +41,11 @@ Babel is the result of a visionary collaboration led by **LunarTech**. We have p
 
 ## ✨ Key Features
 
+- **Agentic OCR**: Intelligent optical character recognition that understands document structure, not just raw text.
 - **Context-Aware Translation**: Understands the nuance and context of entire documents, not just isolated sentences.
 - **Preserves Formatting**: Maintains the original layout, styling, and structure of your documents.
 - **Multi-Format Support**: Seamlessly handles PDF, DOCX, and other major document formats.
-- **Powered by GenAI**: Utilizes the latest advancements in Large Language Models for unmatched accuracy.
+- **Powered by LLMs**: Utilizes the latest advancements in Large Language Models for unmatched accuracy.
 - **Broad Language Support**: Supports translation across 22 major languages.
 
 ## 🌐 Supported Languages
@@ -145,6 +148,14 @@ To run the Babel server locally, follow these steps:
 
 5.  **Access the Application**:
     Open your browser and navigate to: [http://localhost:8000/dashboard/index.html](http://localhost:8000/dashboard/index.html)
+
+Pricing (BETA)
+We offer a simple Credit-based pricing model:
+- **Starter ($49/mo)**: 500k Credits (~100 Documents)
+- **Growth ($149/mo)**: 2M Credits (~400 Documents)
+- **Business ($499/mo)**: 8M Credits (~1,600 Documents)
+
+1 Credit ≈ 10 Characters.
 
 ---
 
