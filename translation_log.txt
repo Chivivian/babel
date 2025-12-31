@@ -2,3 +2,19 @@
 [2025-12-25T17:54:00.468733] Translated Design and Manufacture of a mini-turbojet.pdf
   Languages: es
   Successful: 1, Failed: 0
+
+[2025-12-30T18:08:33.403915] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2025-12-30T18:08:46.229699] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2025-12-30T18:09:57.635972] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: nl
+  Successful: 0, Failed: 1
+
+[2025-12-30T18:10:16.026432] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
