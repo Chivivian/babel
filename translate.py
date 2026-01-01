@@ -151,7 +151,7 @@ def apply_watermark(pdf_path: Path) -> Path:
         return pdf_path
 
 
-def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: str, watermark: bool = True) -> bool:
+def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: str, watermark: bool = True, model: str = "gpt-4o-mini", **kwargs) -> bool:
     """Translate a single file to the specified language."""
     lang_name = ALL_LANGUAGES.get(lang_code, lang_code)
     print(f"\n📄 Translating to {lang_name} ({lang_code})...")
@@ -161,11 +161,18 @@ def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: 
         "--files", str(input_file.absolute()),
         "--lang-out", lang_code,
         "--openai",
-        "--openai-model", "gpt-4o",
+        "--openai-model", model,
         "--openai-api-key", api_key,
-        "--pool-max-workers", "4",
+        "--pool-max-workers", str(kwargs.get("pool_max_workers", 20)),
         "--output", str(output_dir.absolute())
     ]
+    
+    if kwargs.get("fast"):
+        cmd.extend([
+            "--skip-scanned-detection",
+            "--skip-curve-render",
+            "--disable-graphic-element-process"
+        ])
     
     try:
         process = subprocess.Popen(
@@ -227,6 +234,9 @@ Examples:
     parser.add_argument("--all-languages", "-a", action="store_true", help="Translate to all 22 popular languages")
     parser.add_argument("--output", "-o", type=str, help="Output directory (default: babel-backend/Outputs)")
     parser.add_argument("--no-watermark", action="store_true", help="Skip adding LunarTech watermark")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="OpenAI model to use (default: gpt-4o-mini)")
+    parser.add_argument("--workers", type=int, default=20, help="Number of parallel workers (default: 20)")
+    parser.add_argument("--fast", action="store_true", help="Enable maximum speed optimizations")
     parser.add_argument("--list-languages", action="store_true", help="List all available language codes")
     
     args = parser.parse_args()
@@ -290,7 +300,11 @@ Examples:
     failed = []
     
     for lang_code in languages:
-        if translate_file(input_file, lang_code, output_dir, api_key, watermark=not args.no_watermark):
+        if translate_file(input_file, lang_code, output_dir, api_key, 
+                          watermark=not args.no_watermark, 
+                          model=args.model, 
+                          pool_max_workers=args.workers,
+                          fast=args.fast):
             successful.append(lang_code)
         else:
             failed.append(lang_code)

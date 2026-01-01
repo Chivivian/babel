@@ -18,3 +18,91 @@
 [2025-12-30T18:10:16.026432] Translated Design and Manufacture of a mini-turbojet.pdf
   Languages: nl
   Successful: 1, Failed: 0
+
+[2026-01-01T14:28:10.353621] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T14:57:50.441965] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T14:57:50.680130] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:00:54.572005] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:00:55.597529] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:00:57.825071] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:05:22.051410] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:05:39.408162] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:06:07.514427] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:06:16.438072] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:10:57.558103] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:11:37.818520] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:19:28.234813] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:22:33.912239] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:26:03.747193] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:28:13.248452] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:29:34.186027] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:31:15.990116] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:33:01.651965] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:34:55.404121] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:38:25.211958] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
+
+[2026-01-01T15:42:54.745826] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: nl
+  Successful: 1, Failed: 0

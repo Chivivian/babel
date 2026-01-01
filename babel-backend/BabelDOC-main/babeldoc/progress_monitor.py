@@ -23,7 +23,7 @@ class ProgressMonitor:
         part_index: int | None = 0,
         total_parts: int | None = 1,
     ):
-        self.lock = threading.Lock()
+        self._lock = threading.Lock()
         self.parent_monitor = parent_monitor
         self.part_index = part_index
         self.total_parts = total_parts
@@ -32,16 +32,17 @@ class ProgressMonitor:
 
         # Convert stages list to dict with name and weight
         self.stage = {}
-        total_weight = sum(weight for _, weight in stages)
-        for name, weight in stages:
-            normalized_weight = weight / total_weight
-            self.stage[name] = TranslationStage(
-                name,
-                0,
-                self,
-                normalized_weight,
-                self.lock,
-            )
+        if stages:
+            total_weight = sum(weight for _, weight in stages)
+            for name, weight in stages:
+                normalized_weight = weight / (total_weight or 1)
+                self.stage[name] = TranslationStage(
+                    name,
+                    0,
+                    self,
+                    normalized_weight,
+                    self._lock,
+                )
 
         self.progress_change_callback = progress_change_callback
         self.finish_callback = finish_callback
@@ -68,6 +69,39 @@ class ProgressMonitor:
                 part_index=self.part_index,
                 total_parts=self.total_parts,
             )
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove non-picklable attributes
+        non_picklable = ["_lock", "loop", "finish_event", "cancel_event", 
+                         "progress_change_callback", "finish_callback"]
+        for attr in non_picklable:
+            if attr in state:
+                state.pop(attr)
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Re-initialize non-picklable attributes
+        self._lock = threading.Lock()
+        self.loop = None
+        self.finish_event = None
+        self.cancel_event = None
+        self.progress_change_callback = None
+        self.finish_callback = None
+        # Ensure critical fields exist
+        if not hasattr(self, "disable"):
+            self.disable = False
+        if not hasattr(self, "part_results"):
+            self.part_results = {}
+
+    def advance(self, n: int = 1):
+        """Advance progress by n items. No-op if disabled or used as a top-level monitor."""
+        if self.disable:
+            return
+        # This is a top-level progress monitor, not a stage-specific one
+        # Stage advance should be called via stage_update
+        pass
 
     def create_part_monitor(
         self, part_index: int, total_parts: int
@@ -276,6 +310,20 @@ class TranslationStage:
         self.run_time = 0
         self.weight = weight
         self.lock = lock
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "lock" in state:
+            del state["lock"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Lock will be restored from parent ProgressMonitor or re-initialized
+        if hasattr(self, "pm") and self.pm and hasattr(self.pm, "_lock"):
+            self.lock = self.pm._lock
+        else:
+            self.lock = threading.Lock()
 
     def __enter__(self):
         return self

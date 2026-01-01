@@ -704,50 +704,50 @@ class ILCreater:
         try:
             if xref_id is None:
                 logger.warning("xref_id is None for font %s", font_name)
-                raise ValueError("xref_id is None for font %s", font_name)
-            bbox_list, cmap = self.parse_font_xobj_id(xref_id)
-            font_char_bounding_box_map = {}
-            if not cmap:
-                cmap = {x: x for x in range(257)}
-            for char_id, char_bbox in enumerate(bbox_list):
-                font_char_bounding_box_map[char_id] = char_bbox
-            for char_id in cmap:
-                if char_id < 0 or char_id >= len(bbox_list):
-                    continue
-                bbox = bbox_list[char_id]
-                x, y, x2, y2 = bbox
-                if (
-                    x == 0
-                    and y == 0
-                    and x2 == 500
-                    and y2 == 698
-                    or x == 0
-                    and y == 0
-                    and x2 == 0
-                    and y2 == 0
-                ):
-                    # ignore default bounding box
-                    continue
-                il_font_metadata.pdf_font_char_bounding_box.append(
-                    il_version_1.PdfFontCharBoundingBox(
-                        x=x,
-                        y=y,
-                        x2=x2,
-                        y2=y2,
-                        char_id=char_id,
-                    )
-                )
-                font_char_bounding_box_map[char_id] = bbox
-            if self.xobj_id in self.xobj_map:
-                if self.xobj_id not in self.current_page_font_char_bounding_box_map:
-                    self.current_page_font_char_bounding_box_map[self.xobj_id] = {}
-                self.current_page_font_char_bounding_box_map[self.xobj_id][xref_id] = (
-                    font_char_bounding_box_map
-                )
             else:
-                self.current_page_font_char_bounding_box_map[xref_id] = (
-                    font_char_bounding_box_map
-                )
+                bbox_list, cmap = self.parse_font_xobj_id(xref_id)
+                font_char_bounding_box_map = {}
+                if not cmap:
+                    cmap = {x: x for x in range(257)}
+                for char_id, char_bbox in enumerate(bbox_list):
+                    font_char_bounding_box_map[char_id] = char_bbox
+                for char_id in cmap:
+                    if char_id < 0 or char_id >= len(bbox_list):
+                        continue
+                    bbox = bbox_list[char_id]
+                    x, y, x2, y2 = bbox
+                    if (
+                        x == 0
+                        and y == 0
+                        and x2 == 500
+                        and y2 == 698
+                        or x == 0
+                        and y == 0
+                        and x2 == 0
+                        and y2 == 0
+                    ):
+                        # ignore default bounding box
+                        continue
+                    il_font_metadata.pdf_font_char_bounding_box.append(
+                        il_version_1.PdfFontCharBoundingBox(
+                            x=x,
+                            y=y,
+                            x2=x2,
+                            y2=y2,
+                            char_id=char_id,
+                        )
+                    )
+                    font_char_bounding_box_map[char_id] = bbox
+                if self.xobj_id in self.xobj_map:
+                    if self.xobj_id not in self.current_page_font_char_bounding_box_map:
+                        self.current_page_font_char_bounding_box_map[self.xobj_id] = {}
+                    self.current_page_font_char_bounding_box_map[self.xobj_id][xref_id] = (
+                        font_char_bounding_box_map
+                    )
+                else:
+                    self.current_page_font_char_bounding_box_map[xref_id] = (
+                        font_char_bounding_box_map
+                    )
         except Exception as e:
             if xref_id is None:
                 logger.error("failed to parse font xobj id None: %s", e)

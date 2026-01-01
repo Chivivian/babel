@@ -59,6 +59,19 @@ class OnnxModel(DocLayoutModel):
         )
         self.lock = threading.Lock()
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "model" in state:
+            state["model"] = None
+        if "lock" in state:
+            state["lock"] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.lock = threading.Lock()
+        # model is left as None; workers needing it should re-init if necessary.
+
     @staticmethod
     def from_pretrained():
         pth = get_doclayout_onnx_model_path()

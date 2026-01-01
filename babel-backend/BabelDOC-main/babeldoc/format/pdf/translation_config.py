@@ -36,6 +36,16 @@ class SharedContextCrossSplitPart:
         self.valid_char_count_total: int = 0
         self.total_valid_text_token_count: int = 0
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "_lock" in state:
+            del state["_lock"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._lock = threading.Lock()
+
     def initialize_glossaries(self, initial_glossaries: list[Glossary] | None):
         with self._lock:
             self.user_glossaries = (
@@ -48,9 +58,23 @@ class SharedContextCrossSplitPart:
             for g in self.user_glossaries:
                 for entity in g.normalized_lookup:
                     self.norm_terms.add(entity)
-            # reset statistics buffer when initializing
-            self.valid_char_count_total = 0
-            self.total_valid_text_token_count = 0
+
+    def merge(self, other: "SharedContextCrossSplitPart"):
+        """Merge statistics and state from another context instance."""
+        with self._lock:
+            self.valid_char_count_total += other.valid_char_count_total
+            self.total_valid_text_token_count += other.total_valid_text_token_count
+            # For context-aware items, take the latest if not already set, 
+            # though in parsing they might not be fully set yet.
+            if other.first_paragraph:
+                self.first_paragraph = other.first_paragraph
+            if other.recent_title_paragraph:
+                self.recent_title_paragraph = other.recent_title_paragraph
+            if other.auto_enabled_ocr_workaround:
+                self.auto_enabled_ocr_workaround = True
+            
+            # Merit glossary merging if needed, but usually these are handled elsewhere
+            self.raw_extracted_terms.extend(other.raw_extracted_terms)
 
     def add_raw_extracted_term_pair(self, src: str, tgt: str):
         with self._lock:
@@ -357,6 +381,24 @@ class TranslationConfig:
 
         if self.ocr_workaround:
             self.remove_non_formula_lines = False
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove non-picklable attributes
+        non_picklable = [
+            "translator",
+            "term_extraction_translator",
+            "doc_layout_model",
+            "table_model",
+            "split_strategy",
+        ]
+        for attr in non_picklable:
+            if attr in state:
+                state[attr] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
 
     def parse_pages(self, pages_str: str | None) -> list[tuple[int, int]] | None:
         """解析页码字符串，返回页码范围列表

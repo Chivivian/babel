@@ -1,7 +1,9 @@
 import asyncio
+import concurrent.futures
 import copy
 import hashlib
 import io
+import os
 import logging
 import pathlib
 import re
@@ -360,103 +362,155 @@ def start_parse_il(
 ) -> None:
     rsrcmgr = PDFResourceManager()
     layout = {}
-    device = TranslateConverter(
-        rsrcmgr,
-        vfont,
-        vchar,
-        thread,
-        layout,
-        lang_in,
-        lang_out,
-        service,
-        resfont,
-        noto,
-        kwarg.get("envs", {}),
-        kwarg.get("prompt", []),
-        il_creater=il_creater,
-    )
-    # model = DocLayoutModel.load_available()
-
-    assert device is not None
-    assert il_creater is not None
-    assert translation_config is not None
     obj_patch = {}
-    interpreter = PDFPageInterpreterEx(rsrcmgr, device, obj_patch, il_creater)
-    if pages:
-        total_pages = len(pages)
-    else:
-        total_pages = doc_zh.page_count
-
-    il_creater.on_total_pages(total_pages)
-
+    
     parser = PDFParser(inf)
     doc = PDFDocument(parser)
-
-    for pageno, page in enumerate(PDFPage.create_pages(doc)):
-        if cancellation_event and cancellation_event.is_set():
-            raise CancelledError("task cancelled")
+    all_pages = list(PDFPage.create_pages(doc))
+    
+    total_pages = len(all_pages)
+    il_creater.on_total_pages(total_pages)
+    
+    # Logic to filter pages
+    page_indices = []
+    for pageno in range(total_pages):
         if pages and (pageno not in pages):
             continue
+        if translation_config.should_translate_page(pageno + 1):
+            page_indices.append(pageno)
+
+    if not page_indices:
+        il_creater.on_finish()
+        return
+
+    max_workers = translation_config.pool_max_workers or 4
+    
+    # Parallelize parsing if we have multiple pages and workers
+    # If we are already in a sub-process (part processing), we might still want some parallelism
+    # but we should be careful. 
+    inf.seek(0)  # Reset file position after initial parsing
+    pdf_bytes = inf.read()
+    
+    if max_workers > 1 and len(page_indices) > 2:
+        logger.info(f"Parallel parsing {len(page_indices)} pages with {max_workers} processes")
+        
+        # Store results in a dict to merge later
+        results_dict = {}
+        
+        # Divide pages into chunks to reduce pickling overhead
+        num_chunks = min(len(page_indices), max_workers * 2)
+        chunk_size = max(1, len(page_indices) // num_chunks)
+        chunks = [page_indices[i:i + chunk_size] for i in range(0, len(page_indices), chunk_size)]
+        
+        try:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # We pass pdf_bytes once for each chunk. 
+                # To ensure unique xobj_ids and render_orders, we use offsets based on page index.
+                # Assuming max 10,000 xobjects per page and 1,000,000 render items per page.
+                futures = {}
+                for chunk in chunks:
+                    start_page_idx = chunk[0]
+                    # This offset strategy ensures that workers create disjoint sets of IDs
+                    start_xobj_id = start_page_idx * 10000
+                    start_render_order = start_page_idx * 1000000
+                    
+                    f = executor.submit(
+                        _parse_pages_worker, 
+                        pdf_bytes, 
+                        chunk, 
+                        translation_config,
+                        start_xobj_id,
+                        start_render_order
+                    )
+                    futures[f] = chunk
+                
+                for future in concurrent.futures.as_completed(futures):
+                    chunk_indices = futures[future]
+                    try:
+                        pages_list, x_map, p_patch, s_context, err = future.result()
+                        if err:
+                            logger.error(f"Error in parallel parsing chunk {chunk_indices}: {err}")
+                            raise Exception(err)
+                        
+                        logger.info(f"Received {len(pages_list) if pages_list else 0} pages from chunk {chunk_indices}")
+                        if pages_list:
+                            for p in pages_list:
+                                logger.info(f"  Page {p.page_number}: {len(p.pdf_character)} chars")
+                        
+                        # Store pages with their indices
+                        for idx, p_obj in zip(chunk_indices, pages_list):
+                            results_dict[idx] = p_obj
+                            
+                        # Merge xobj_map and obj_patch
+                        if x_map:
+                            il_creater.xobj_map.update(x_map)
+                        if p_patch:
+                            obj_patch.update(p_patch)
+                        
+                        # Merge shared context (statistics)
+                        if s_context and translation_config.shared_context_cross_split_part:
+                            translation_config.shared_context_cross_split_part.merge(s_context)
+
+                    except Exception as e:
+                        logger.error(f"Failed to parse chunk {chunk_indices}: {e}")
+                        raise
+            
+            # Merge results in order
+            for idx in sorted(page_indices):
+                if idx in results_dict:
+                    il_creater.docs.page.append(results_dict[idx])
+            
+            # Update main il_creater's counters to avoid collisions with future additions
+            if results_dict:
+                max_page_idx = max(results_dict.keys())
+                # Ensure future increments start after the highest used range
+                il_creater.xobj_inc = max(il_creater.xobj_inc, (max_page_idx + 1) * 10000)
+                il_creater.render_order = max(il_creater.render_order, (max_page_idx + 1) * 1000000)
+
+            il_creater.on_finish()
+            return
+        except Exception as e:
+            logger.error(f"Parallel parsing failed, falling back to serial: {e}")
+            # fall through to serial logic
+            inf.seek(0)
+            pdf_bytes = inf.read() # refresh maybe?
+    
+    # Original serial logic as fallback
+    inf.seek(0)
+    parser = PDFParser(inf)
+    doc = PDFDocument(parser)
+    all_pages = list(PDFPage.create_pages(doc))
+    
+    device = TranslateConverter(
+        rsrcmgr, vfont, vchar, thread, layout, lang_in, lang_out,
+        service, resfont, noto, kwarg.get("envs", {}), kwarg.get("prompt", []),
+        il_creater=il_creater,
+    )
+    interpreter = PDFPageInterpreterEx(rsrcmgr, device, obj_patch, il_creater)
+
+    for pageno in page_indices:
+        page = all_pages[pageno]
+        if cancellation_event and cancellation_event.is_set():
+            raise CancelledError("task cancelled")
+            
         page.pageno = pageno
-
-        if not translation_config.should_translate_page(pageno + 1):
-            continue
-
-        height, width = (
-            page.cropbox[3] - page.cropbox[1],
-            page.cropbox[2] - page.cropbox[0],
-        )
-        if height > 1200 or width > 2000:
-            logger.warning(f"page {pageno + 1} is too large, maybe unable to translate")
-            # continue
-
-        translation_config.raise_if_cancelled()
-        # The current program no longer relies on
-        # the following layout recognition results,
-        # but in order to facilitate the migration of pdf2zh,
-        # the relevant code is temporarily retained.
-        # pix = doc_zh[page.pageno].get_pixmap()
-        # image = np.frombuffer(pix.samples, np.uint8).reshape(
-        #     pix.height, pix.width, 3
-        # )[:, :, ::-1]
-        # page_layout = model.predict(
-        #     image, imgsz=int(pix.height / 32) * 32)[0]
-        # # kdtree 是不可能 kdtree 的，不如直接渲染成图片，用空间换时间
-        # box = np.ones((pix.height, pix.width))
-        # h, w = box.shape
-        # vcls = ["abandon", "figure", "table",
-        #         "isolate_formula", "formula_caption"]
-        # for i, d in enumerate(page_layout.boxes):
-        #     if page_layout.names[int(d.cls)] not in vcls:
-        #         x0, y0, x1, y1 = d.xyxy.squeeze()
-        #         x0, y0, x1, y1 = (
-        #             np.clip(int(x0 - 1), 0, w - 1),
-        #             np.clip(int(h - y1 - 1), 0, h - 1),
-        #             np.clip(int(x1 + 1), 0, w - 1),
-        #             np.clip(int(h - y0 + 1), 0, h - 1),
-        #         )
-        #         box[y0:y1, x0:x1] = i + 2
-        # for i, d in enumerate(page_layout.boxes):
-        #     if page_layout.names[int(d.cls)] in vcls:
-        #         x0, y0, x1, y1 = d.xyxy.squeeze()
-        #         x0, y0, x1, y1 = (
-        #             np.clip(int(x0 - 1), 0, w - 1),
-        #             np.clip(int(h - y1 - 1), 0, h - 1),
-        #             np.clip(int(x1 + 1), 0, w - 1),
-        #             np.clip(int(h - y0 + 1), 0, h - 1),
-        #         )
-        #         box[y0:y1, x0:x1] = 0
-        # layout[page.pageno] = box
-        # 新建一个 xref 存放新指令流
-        # page.page_xref = doc_zh.get_new_xref()  # hack 插入页面的新 xref
-        # doc_zh.update_object(page.page_xref, "<<>>")
-        # doc_zh.update_stream(page.page_xref, b"")
-        # doc_zh[page.pageno].set_contents(page.page_xref)
+        il_creater.on_page_start()
+        il_creater.on_page_number(pageno)
+        
+        mediabox = page.mediabox
+        if mediabox:
+            il_creater.on_page_media_box(mediabox[0], mediabox[1], mediabox[2], mediabox[3])
+        cropbox = page.cropbox
+        if cropbox:
+            il_creater.on_page_crop_box(cropbox[0], cropbox[1], cropbox[2], cropbox[3])
+            
         ops_base = interpreter.process_page(page)
         il_creater.on_page_base_operation(ops_base)
         il_creater.on_page_end()
+    
     il_creater.on_finish()
     device.close()
+
 
 
 def translate(translation_config: TranslationConfig) -> TranslateResult:
@@ -727,6 +781,96 @@ def update_page_bbox(doc, page, box, key):
         doc.xref_set_key(page.xref, key, f"[{box.x0} {box.y0} {box.x1} {box.y1}]")
 
 
+def _translate_part_worker(i, split_point, part_config, translator, term_translator, layout_model):
+    """Worker function for parallel part translation."""
+    try:
+        # Re-initialize logging in the child process
+        # logger already exists as a module-level object
+        logger.info(f"Worker process starting part {i}")
+        
+        # Restore types that were lost during pickling
+        part_config.translator = translator
+        part_config.term_extraction_translator = term_translator
+        part_config.doc_layout_model = layout_model
+        
+        # We need a progress monitor, but we can't easily sync it back to parent.
+        # So we use a silent one or a mock.
+        from babeldoc.progress_monitor import ProgressMonitor
+        dummy_pm = ProgressMonitor([]) 
+        
+        result = _do_translate_single(dummy_pm, part_config)
+        return i, result, part_config.shared_context_cross_split_part, None
+    except Exception as e:
+        logger.exception(f"Error in worker process for part {i}")
+        return i, None, str(e)
+
+
+def _parse_pages_worker(pdf_bytes, page_indices, translation_config, start_xobj_id=0, start_render_order=0):
+    """Worker function for parallel page parsing."""
+    try:
+        import io
+        import pymupdf
+        from babeldoc.pdfminer.pdfinterp import PDFResourceManager
+        from babeldoc.pdfminer.pdfpage import PDFPage
+        from babeldoc.pdfminer.pdfparser import PDFParser
+        from babeldoc.pdfminer.pdfdocument import PDFDocument
+        from babeldoc.format.pdf.pdfinterp import PDFPageInterpreterEx
+        from babeldoc.format.pdf.converter import TranslateConverter
+        from babeldoc.format.pdf.document_il.frontend.il_creater import ILCreater
+        from babeldoc.progress_monitor import ProgressMonitor
+        
+        # Open mupdf document for ILCreater which uses it for font extraction
+        mupdf_doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        
+        # We need a fresh ILCreater for this set of pages
+        temp_il_creater = ILCreater(translation_config)
+        temp_il_creater.mupdf = mupdf_doc
+        # Initialize unique IDs to avoid collisions during merge
+        temp_il_creater.xobj_inc = start_xobj_id
+        temp_il_creater.render_order = start_render_order
+        
+        # Dummy progress monitor to avoid pickling/sharing issues in sub-sub-process
+        temp_il_creater.progress = ProgressMonitor([]) 
+        temp_il_creater.progress.disable = True
+        
+        rsrcmgr = PDFResourceManager()
+        # For parsing, we don't need full TranslateConverter params usually
+        device = TranslateConverter(rsrcmgr, il_creater=temp_il_creater)
+        obj_patch = {} 
+        
+        interpreter = PDFPageInterpreterEx(rsrcmgr, device, obj_patch, temp_il_creater)
+        
+        inf = io.BytesIO(pdf_bytes)
+        parser = PDFParser(inf)
+        doc = PDFDocument(parser)
+        
+        all_pdf_pages = list(PDFPage.create_pages(doc))
+        parsed_pages = []
+        for idx in page_indices:
+            if idx >= len(all_pdf_pages):
+                continue
+            page = all_pdf_pages[idx]
+            page.pageno = idx
+            
+            # process_page handles on_page_start, on_page_crop_box, on_page_media_box, on_page_number internally
+            ops_base = interpreter.process_page(page)
+            temp_il_creater.on_page_base_operation(ops_base)
+            temp_il_creater.on_page_end()
+            
+            # Extract the last created page object
+            page_obj = temp_il_creater.docs.page[-1]
+            parsed_pages.append(page_obj)
+            
+        mupdf_doc.close()
+        # Return everything needed to reconstruction the state
+        return parsed_pages, temp_il_creater.xobj_map, obj_patch, translation_config.shared_context_cross_split_part, None
+    except Exception as e:
+        import traceback
+        return None, None, None, None, f"Error in worker parsing pages {page_indices}: {str(e)}\n{traceback.format_exc()}"
+
+
+
+
 def do_translate(
     pm: ProgressMonitor, translation_config: TranslationConfig
 ) -> TranslateResult:
@@ -768,111 +912,122 @@ def do_translate(
                     else:
                         pm.total_parts = len(split_points)
 
-                        # Process parts serially
-                        results: dict[int, TranslateResult | None] = {}
+                        # Prepare parts
                         original_watermark_mode = (
                             translation_config.watermark_output_mode
                         )
                         original_doc = Document(original_pdf_path)
+                        
+                        part_tasks = []
                         for i, split_point in enumerate(split_points):
-                            try:
-                                # Create a copy of config for this part
-                                part_config = copy.copy(translation_config)
-                                part_config.skip_clean = True
-                                should_translate_pages = []
-                                for page in range(
-                                    split_point.start_page, split_point.end_page + 1
+                            # Create a copy of config for this part
+                            part_config = copy.copy(translation_config)
+                            part_config.skip_clean = True
+                            should_translate_pages = []
+                            for page in range(
+                                split_point.start_page, split_point.end_page + 1
+                            ):
+                                if translation_config.should_translate_page(
+                                    page + 1
                                 ):
-                                    if translation_config.should_translate_page(
-                                        page + 1
-                                    ):
-                                        should_translate_pages.append(
-                                            page - split_point.start_page + 1
-                                        )
-                                part_config.pages = None
-                                part_config.page_ranges = [
-                                    (x, x) for x in should_translate_pages
-                                ]
+                                    should_translate_pages.append(
+                                        page - split_point.start_page + 1
+                                    )
+                            part_config.pages = None
+                            part_config.page_ranges = [
+                                (x, x) for x in should_translate_pages
+                            ]
+                            
+                            if (
+                                translation_config.only_include_translated_page
+                                and not should_translate_pages
+                            ):
+                                results[i] = None
+                                continue
+
+                            # Only first part should do scanned detection if enabled
+                            if i > 0:
+                                part_config.skip_scanned_detection = True
+
+                            part_config.working_dir = (
+                                translation_config.get_part_working_dir(i)
+                            )
+                            part_config.output_dir = (
+                                translation_config.get_part_output_dir(i)
+                            )
+
+                            part_temp_input_path = (
+                                part_config.get_working_file_path(
+                                    f"input.part{i}.pdf"
+                                )
+                            )
+                            part_config.input_file = part_temp_input_path
+
+                            temp_doc = Document()
+                            for x in range(
+                                split_point.start_page, split_point.end_page + 1
+                            ):
+                                xref = original_doc[x].xref
                                 if (
-                                    translation_config.only_include_translated_page
-                                    and not should_translate_pages
+                                    original_doc.xref_get_key(xref, "Annots")[0]
+                                    != "null"
                                 ):
-                                    results[i] = None
-                                    continue
-
-                                # Only first part should do scanned detection if enabled
-                                if i > 0:
-                                    part_config.skip_scanned_detection = True
-
-                                part_config.working_dir = (
-                                    translation_config.get_part_working_dir(i)
-                                )
-                                part_config.output_dir = (
-                                    translation_config.get_part_output_dir(i)
-                                )
-
-                                assert id(
-                                    part_config.shared_context_cross_split_part
-                                ) == id(
-                                    translation_config.shared_context_cross_split_part
-                                ), "shared_context_cross_split_part must be the same"
-
-                                part_temp_input_path = (
-                                    part_config.get_working_file_path(
-                                        f"input.part{i}.pdf"
+                                    original_doc.xref_set_key(
+                                        xref, "Annots", "null"
                                     )
+                            temp_doc.insert_pdf(
+                                original_doc,
+                                from_page=split_point.start_page,
+                                to_page=split_point.end_page,
+                            )
+                            safe_save(temp_doc, part_temp_input_path)
+                            
+                            # Only first part should have watermark
+                            if i > 0:
+                                part_config.watermark_output_mode = (
+                                    WatermarkOutputMode.NoWatermark
                                 )
-                                part_config.input_file = part_temp_input_path
+                            
+                            part_tasks.append((i, split_point, part_config))
 
-                                temp_doc = Document()
-                                for x in range(
-                                    split_point.start_page, split_point.end_page + 1
-                                ):
-                                    xref = original_doc[x].xref
-                                    if (
-                                        original_doc.xref_get_key(xref, "Annots")[0]
-                                        != "null"
-                                    ):
-                                        original_doc.xref_set_key(
-                                            xref, "Annots", "null"
-                                        )
-                                temp_doc.insert_pdf(
-                                    original_doc,
-                                    from_page=split_point.start_page,
-                                    to_page=split_point.end_page,
-                                )
-                                safe_save(temp_doc, part_temp_input_path)
-                                assert (
-                                    temp_doc.page_count
-                                    == split_point.end_page - split_point.start_page + 1
-                                )
-
-                                # Only first part should have watermark
-                                if i > 0:
-                                    part_config.watermark_output_mode = (
-                                        WatermarkOutputMode.NoWatermark
-                                    )
-
-                                # Create progress monitor for this part
-                                part_monitor = pm.create_part_monitor(
-                                    i, len(split_points)
-                                )
-
-                                # Process this part
-                                result = _do_translate_single(
-                                    part_monitor,
-                                    part_config,
-                                )
-                                results[i] = result
-
-                            except Exception as e:
-                                logger.error(f"Error in part {i}: {e}")
-                                pm.translate_error(e)
-                                raise
-                            finally:
-                                # Clean up part working directory
-                                translation_config.cleanup_part_working_dir(i)
-
+                        logger.info(f"Dispatching {len(part_tasks)} parts to ProcessPoolExecutor")
+                        
+                        # Process parts in parallel
+                        max_workers = translation_config.pool_max_workers or 4
+                        with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                            # Submit all parts
+                            future_to_part = {
+                                executor.submit(
+                                    _translate_part_worker, 
+                                    i, 
+                                    sp, 
+                                    pc, 
+                                    translation_config.translator,
+                                    translation_config.term_extraction_translator,
+                                    translation_config.doc_layout_model
+                                ): i 
+                                for i, sp, pc in part_tasks
+                            }
+                            
+                            for future in concurrent.futures.as_completed(future_to_part):
+                                part_idx = future_to_part[future]
+                                try:
+                                    idx, result, s_context, err = future.result()
+                                    if err:
+                                        raise Exception(err)
+                                    results[idx] = result
+                                    
+                                    # Merge shared context (statistics) from part worker
+                                    if s_context and translation_config.shared_context_cross_split_part:
+                                        translation_config.shared_context_cross_split_part.merge(s_context)
+                                        
+                                    # Update main progress monitor for finished part
+                                    pm.stage_update("Part Translation", 1) 
+                                except Exception as e:
+                                    logger.error(f"Error in parallel part {part_idx}: {e}")
+                                    pm.translate_error(e)
+                                    raise
+                            
                         # Restore original watermark mode
                         translation_config.watermark_output_mode = (
                             original_watermark_mode
