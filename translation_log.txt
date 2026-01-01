@@ -218,3 +218,7 @@
 [2026-01-01T19:40:01.905543] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
   Languages: nl
   Successful: 1, Failed: 0
+
+[2026-01-01T19:47:02.135175] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
+  Languages: nl
+  Successful: 1, Failed: 0
