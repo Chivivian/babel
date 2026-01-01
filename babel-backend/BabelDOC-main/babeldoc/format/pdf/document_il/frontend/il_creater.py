@@ -1158,7 +1158,7 @@ class ILCreater:
             fill_background=fill_background,
             stroke_path=stroke_path,
             evenodd=evenodd,
-            debug_info=None,  # Set to None so curves only render in debug mode
+            debug_info=False,  # Set to False by default for original graphics
             xobj_id=curve.xobj_id,
             render_order=curve.render_order,
             ctm=list(ctm) if ctm is not None else None,

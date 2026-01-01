@@ -709,7 +709,7 @@ class PDFCreater:
         if not translation_config.skip_curve_render:
             all_curves = list(page.pdf_curve) + formula_curves
             for i, curve in enumerate(all_curves):
-                if curve.debug_info or translation_config.debug:
+                if (not curve.debug_info) or translation_config.debug:
                     render_order = getattr(
                         curve, "render_order", 20
                     )  # Curves render after rectangles

@@ -165,23 +165,23 @@ def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: 
         "--openai-api-key", api_key,
         "--pool-max-workers", str(kwargs.get("pool_max_workers", 20)),
         "--output", str(output_dir.absolute()),
-        "--skip-curve-render",  # Always skip curve rendering to avoid blue lines
     ]
 
     if kwargs.get("primary_font_family"):
         cmd.extend(["--primary-font-family", kwargs.get("primary_font_family")])
     
     if kwargs.get("fast"):
-        # Fast mode: skip scanned detection and graphic element processing
+        # Fast mode: only skip CPU-intensive scanned document detection.
+        # CRITICAL: Never skip graphic element processing. Vector graphics
+        # (diagrams, charts, arrows) are essential for technical documents.
         cmd.extend([
             "--skip-scanned-detection",
-            "--disable-graphic-element-process"
+            # "--disable-graphic-element-process"  # REMOVED: This was destroying diagrams
         ])
     else:
-        # Quality mode: enable table translation and remove decorative lines
+        # Quality mode: enable table translation
         cmd.extend([
             "--translate-table-text",        # Enable table text translation (experimental)
-            "--remove-non-formula-lines",    # Remove decorative lines that aren't formulas
         ])
     
     try:
