@@ -642,15 +642,19 @@ class PDFCreater:
         render_units = []
 
         # Collect all characters (from page and paragraphs)
-        # Only use original page.pdf_character if there are no translated paragraphs
-        # When paragraphs exist, they contain the translated text that replaces the original
+        # CRITICAL FIX: We must render BOTH:
+        # 1. Characters from paragraphs (translated text)
+        # 2. Characters that were skipped from paragraph processing (formulas, captions in non-text layouts)
+        # The previous logic only used one OR the other, causing formula text to be lost.
         chars = []
         if page.pdf_paragraph:
-            # Use translated paragraph characters only
+            # Collect characters from translated paragraphs
             for paragraph in page.pdf_paragraph:
                 chars.extend(self.render_paragraph_to_char(paragraph))
-        elif page.pdf_character:
-            # No paragraphs, use original characters
+        
+        # ALSO include remaining page-level characters (formulas, non-text layout content)
+        # These are characters that were skipped from paragraph processing
+        if page.pdf_character:
             chars.extend(page.pdf_character)
 
         # Convert characters to render units
