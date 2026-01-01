@@ -87,6 +87,119 @@ LINE_BREAK_REGEX = regex.compile(
 )
 
 
+# ============================================================================
+# LAYOUT-AWARE FORMULA RELOCATION
+# These functions preserve the structural relationships (baselines, vertical
+# levels) of formula characters during relocation, preventing distortion.
+# ============================================================================
+
+def group_chars_by_vertical_level(chars: list, tolerance: float = 2.0) -> dict:
+    """
+    Group formula characters by their vertical position (baseline level).
+    
+    Characters at the same vertical level (e.g., main line, subscript, superscript)
+    are grouped together to preserve their relative alignment during relocation.
+    
+    Args:
+        chars: List of PdfCharacter objects
+        tolerance: Vertical tolerance for grouping (pixels)
+    
+    Returns:
+        Dict mapping level_id to list of (char, original_y_center) tuples
+    """
+    if not chars:
+        return {}
+    
+    levels = {}
+    level_id = 0
+    
+    # Sort chars by y position for easier grouping
+    sorted_chars = sorted(chars, key=lambda c: c.visual_bbox.box.y if c.visual_bbox else c.box.y)
+    
+    for char in sorted_chars:
+        y_center = (char.visual_bbox.box.y + char.visual_bbox.box.y2) / 2 if char.visual_bbox else (char.box.y + char.box.y2) / 2
+        
+        # Find if this char belongs to an existing level
+        assigned = False
+        for lid, level_chars in levels.items():
+            if level_chars:
+                existing_y = level_chars[0][1]
+                if abs(y_center - existing_y) < tolerance:
+                    levels[lid].append((char, y_center))
+                    assigned = True
+                    break
+        
+        if not assigned:
+            levels[level_id] = [(char, y_center)]
+            level_id += 1
+    
+    return levels
+
+
+def calculate_level_baseline(level_chars: list) -> float:
+    """
+    Calculate the baseline y-position for a group of characters at the same level.
+    
+    Args:
+        level_chars: List of (char, y_center) tuples
+    
+    Returns:
+        Baseline y-position for this level
+    """
+    if not level_chars:
+        return 0.0
+    
+    # Use the average y-center as the baseline
+    y_centers = [yc for _, yc in level_chars]
+    return sum(y_centers) / len(y_centers)
+
+
+def calculate_level_spacing(levels: dict) -> dict:
+    """
+    Calculate the spacing between different vertical levels.
+    
+    Args:
+        levels: Dict from group_chars_by_vertical_level
+    
+    Returns:
+        Dict mapping (level_id, level_id) pairs to their vertical spacing
+    """
+    baselines = {lid: calculate_level_baseline(chars) for lid, chars in levels.items()}
+    spacing = {}
+    
+    sorted_lids = sorted(baselines.keys(), key=lambda lid: baselines[lid])
+    
+    for i in range(len(sorted_lids) - 1):
+        lid1 = sorted_lids[i]
+        lid2 = sorted_lids[i + 1]
+        spacing[(lid1, lid2)] = baselines[lid2] - baselines[lid1]
+    
+    return spacing
+
+
+def get_font_size_for_level(level_chars: list) -> float:
+    """
+    Get the predominant font size for a level (for scaling calculations).
+    
+    Args:
+        level_chars: List of (char, y_center) tuples
+    
+    Returns:
+        Most common font size in this level
+    """
+    if not level_chars:
+        return 12.0  # Default
+    
+    font_sizes = [char.pdf_style.font_size for char, _ in level_chars if char.pdf_style and char.pdf_style.font_size]
+    if not font_sizes:
+        return 12.0
+    
+    # Return most common font size
+    from collections import Counter
+    counter = Counter(font_sizes)
+    return counter.most_common(1)[0][0]
+
+
 class TypesettingUnit:
     def __str__(self):
         return self.try_get_unicode() or ""
@@ -530,70 +643,87 @@ class TypesettingUnit:
             return new_tu
 
         elif self.formular:
-            # 创建新的公式对象，保持内部字符的相对位置
+            # Layout-aware relocation preserving formula structure
+            # Group chars by vertical level (main line, subscript, superscript)
+            # to preserve relative alignment
+            levels = group_chars_by_vertical_level(self.formular.pdf_character)
+            
             new_chars = []
             min_x = self.formular.box.x
             min_y = self.formular.box.y
 
-            for char in self.formular.pdf_character:
-                # 计算相对位置
-                rel_x = char.box.x - min_x
-                rel_y = char.box.y - min_y
-
-                visual_rel_x = char.visual_bbox.box.x - min_x
-                visual_rel_y = char.visual_bbox.box.y - min_y
-
-                # 创建新的字符对象
-                new_char = PdfCharacter(
-                    pdf_character_id=char.pdf_character_id,
-                    char_unicode=char.char_unicode,
-                    box=Box(
-                        x=x + (rel_x + self.formular.x_offset) * scale,
-                        y=y + (rel_y + self.formular.y_offset) * scale,
-                        x2=x
-                        + (rel_x + (char.box.x2 - char.box.x) + self.formular.x_offset)
-                        * scale,
-                        y2=y
-                        + (rel_y + (char.box.y2 - char.box.y) + self.formular.y_offset)
-                        * scale,
-                    ),
-                    visual_bbox=il_version_1.VisualBbox(
+            for level_id, level_items in levels.items():
+                # Calculate baseline for this level
+                level_chars = [item[0] for item in level_items]
+                original_level_baseline = calculate_level_baseline(level_items) # Average Y-center
+                
+                # Calculate relative Y position of this level within formula
+                rel_level_y = original_level_baseline - min_y
+                
+                for char in level_chars:
+                    # Calculate relative X position
+                    rel_x = char.box.x - min_x
+                    visual_rel_x = char.visual_bbox.box.x - min_x
+                    
+                    # For Y, use the LEVEL's baseline to align characters (snap to grid effect)
+                    # This fixes "jittery" characters in formulas
+                    
+                    # Calculate target Y center for this level in new coordinates
+                    new_level_baseline_y = y + (rel_level_y + self.formular.y_offset) * scale
+                    
+                    # Calculate character dimensions
+                    char_height = char.box.y2 - char.box.y
+                    char_width = char.box.x2 - char.box.x
+                    
+                    new_height = char_height * scale
+                    new_width = char_width * scale
+                    
+                    # Center the character vertically on the new level baseline
+                    new_y = new_level_baseline_y - (new_height / 2)
+                    new_y2 = new_level_baseline_y + (new_height / 2)
+                    
+                    # Calculate X positions
+                    new_x_pos = x + (rel_x + self.formular.x_offset) * scale
+                    new_x2_pos = new_x_pos + new_width
+                    
+                    # Create new character
+                    new_char = PdfCharacter(
+                        pdf_character_id=char.pdf_character_id,
+                        char_unicode=char.char_unicode,
                         box=Box(
-                            x=x + (visual_rel_x + self.formular.x_offset) * scale,
-                            y=y + (visual_rel_y + self.formular.y_offset) * scale,
-                            x2=x
-                            + (
-                                visual_rel_x
-                                + (char.visual_bbox.box.x2 - char.visual_bbox.box.x)
-                                + self.formular.x_offset
-                            )
-                            * scale,
-                            y2=y
-                            + (
-                                visual_rel_y
-                                + (char.visual_bbox.box.y2 - char.visual_bbox.box.y)
-                                + self.formular.y_offset
-                            )
-                            * scale,
+                            x=new_x_pos,
+                            y=new_y,
+                            x2=new_x2_pos,
+                            y2=new_y2,
                         ),
-                    ),
-                    pdf_style=PdfStyle(
-                        font_id=char.pdf_style.font_id,
-                        font_size=char.pdf_style.font_size * scale,
-                        graphic_state=char.pdf_style.graphic_state,
-                    ),
-                    scale=scale,
-                    vertical=char.vertical,
-                    advance=char.advance * scale if char.advance else None,
-                    xobj_id=char.xobj_id,
-                )
-                new_chars.append(new_char)
+                        visual_bbox=il_version_1.VisualBbox(
+                            box=Box(
+                                x=x + (visual_rel_x + self.formular.x_offset) * scale,
+                                y=new_y, # Align visual box too
+                                x2=x + (visual_rel_x + (char.visual_bbox.box.x2 - char.visual_bbox.box.x) + self.formular.x_offset) * scale,
+                                y2=new_y2,
+                            ),
+                        ),
+                        pdf_style=PdfStyle(
+                            font_id=char.pdf_style.font_id,
+                            font_size=char.pdf_style.font_size * scale,
+                            graphic_state=char.pdf_style.graphic_state,
+                        ),
+                        scale=scale,
+                        vertical=char.vertical,
+                        advance=char.advance * scale if char.advance else None,
+                        xobj_id=char.xobj_id,
+                    )
+                    new_chars.append(new_char)
 
             # Calculate bounding box from new_chars
-            min_x = min(char.visual_bbox.box.x for char in new_chars)
-            min_y = min(char.visual_bbox.box.y for char in new_chars)
-            max_x = max(char.visual_bbox.box.x2 for char in new_chars)
-            max_y = max(char.visual_bbox.box.y2 for char in new_chars)
+            if new_chars:
+                min_x = min(char.box.x for char in new_chars)
+                min_y = min(char.box.y for char in new_chars)
+                max_x = max(char.box.x2 for char in new_chars)
+                max_y = max(char.box.y2 for char in new_chars)
+            else:
+                min_x, min_y, max_x, max_y = 0, 0, 0, 0
 
             new_formula = PdfFormula(
                 box=Box(
@@ -636,6 +766,7 @@ class TypesettingUnit:
             new_tu = TypesettingUnit(formular=new_formula)
             new_tu.try_resue_cache(self)
             return new_tu
+
 
         elif self.unicode:
             # 对于 Unicode 字符，我们存储新的位置信息
@@ -943,7 +1074,7 @@ class Typesetting:
 
         box = paragraph.box
         scale = initial_scale
-        line_skip = 1.50 if self.is_cjk else 1.3
+        line_skip = 1.50 if self.is_cjk else 1.4
         min_scale = 0.1
         expand_space_flag = 0
         final_typeset_units = None
@@ -1335,7 +1466,7 @@ class Typesetting:
         paragraph: il_version_1.PdfParagraph,
         use_english_line_break: bool = True,
     ) -> tuple[list[TypesettingUnit], bool]:
-        """布局排版单元。
+        """布局排版单元 (Refactored with Line Buffering)。
 
         Args:
             typesetting_units: 要布局的排版单元列表
@@ -1345,144 +1476,231 @@ class Typesetting:
         Returns:
             tuple[list[TypesettingUnit], bool]: (已布局的排版单元列表，是否所有单元都放得下)
         """
-        # 计算字号众数
-        font_sizes = []
-        for unit in typesetting_units:
-            if unit.font_size:
-                font_sizes.append(unit.font_size)
-            if unit.char and unit.char.pdf_style and unit.char.pdf_style.font_size:
-                font_sizes.append(unit.char.pdf_style.font_size)
-        font_sizes.sort()
-        font_size = statistics.mode(font_sizes)
+        if not typesetting_units:
+            return [], True
 
-        space_width = (
-            self.font_mapper.base_font.char_lengths("你", font_size * scale)[0] * 0.5
-        )
-
-        # 计算行高（使用众数）
-        unit_heights = (
-            [unit.height for unit in typesetting_units] if typesetting_units else []
-        )
-        if not unit_heights:
-            avg_height = 0
-        elif len(unit_heights) == 1:
-            avg_height = unit_heights[0] * scale
-        else:
-            try:
-                avg_height = statistics.mode(unit_heights) * scale
-            except statistics.StatisticsError:
-                # 如果没有众数（所有值都出现相同次数），则使用平均值
-                avg_height = sum(unit_heights) / len(unit_heights) * scale
-
-        # 初始化位置为右上角，并减去一个平均行高
-        current_x = box.x
-        current_y = box.y2 - avg_height
-        box = copy.deepcopy(box)
-        # box.y -= avg_height * (line_spacing - 1.01) # line_spacing 已被替换为 line_skip
-        line_height = 0
-        current_line_heights = []  # 存储当前行所有元素的高度
-
-        # 存储已排版的单元
+        # Constants
+        FORMULA_PADDING = 3.0 * scale
+        
+        # Initialize
+        current_y_top = box.y2  # Start from top of box
+        
+        # Buffers
+        line_units = []
+        current_line_width = 0.0
+        if paragraph.first_line_indent:
+             # Space width estimation
+             font_sizes = [u.font_size for u in typesetting_units if u.font_size] or [10.0]
+             avg_fs = sum(font_sizes)/len(font_sizes) if font_sizes else 10.0
+             indent_width = (avg_fs * scale * 0.5) * 4
+             current_line_width += indent_width
+        
         typeset_units = []
         all_units_fit = True
-        last_unit: TypesettingUnit | None = None
-        line_ys = [current_y]
-        if paragraph.first_line_indent:
-            current_x += space_width * 4
-        # 遍历所有排版单元
-        for i, unit in enumerate(typesetting_units):
-            # 计算当前单元在当前缩放下的尺寸
+        
+        # Calculate space width for estimation
+        base_font_size = 10.0
+        if typesetting_units:
+             sizes = [u.font_size for u in typesetting_units if u.font_size]
+             if sizes:
+                 base_font_size = sizes[0] # Approximation
+        
+        space_width = (
+            self.font_mapper.base_font.char_lengths(" ", base_font_size * scale)[0]
+        )
+
+        
+        # 1. Main Layout Loop (Buffering)
+        idx = 0
+        while idx < len(typesetting_units):
+            unit = typesetting_units[idx]
+            
+            # Calculate unit dimensions
             unit_width = unit.width * scale
             unit_height = unit.height * scale
-
-            # 跳过行首的空格
-            if current_x == box.x and unit.is_space:
-                continue
-
-            if (
-                last_unit  # 有上一个单元
-                and last_unit.is_cjk_char ^ unit.is_cjk_char  # 中英文交界处
-                and (
-                    last_unit.box
-                    and last_unit.box.y
-                    and current_y - 0.1
-                    <= last_unit.box.y2
-                    <= current_y + line_height + 0.1
-                )  # 在同一行，且有垂直重叠
-                and not last_unit.mixed_character_blacklist  # 不是混排空格黑名单字符
-                and not unit.mixed_character_blacklist  # 同上
-                and current_x > box.x  # 不是行首
-                and unit.try_get_unicode() != " "  # 不是空格
-                and last_unit.try_get_unicode() != " "  # 不是空格
-                and last_unit.try_get_unicode()
-                not in [
-                    "。",
-                    "！",
-                    "？",
-                    "；",
-                    "：",
-                    "，",
-                ]
-            ):
-                current_x += space_width * 0.5
+            
+            # Add padding for formulas
+            extra_width = 0.0
+            if unit.formular:
+                extra_width = FORMULA_PADDING * 2
+            
+            total_unit_width = unit_width + extra_width
+            
+            # Check for English line break lookahead
+            width_lookahead = 0.0
             if use_english_line_break:
-                width_before_next_break_point = self._get_width_before_next_break_point(
-                    typesetting_units[i:], scale
+                width_lookahead = self._get_width_before_next_break_point(
+                    typesetting_units[idx:], scale
                 )
-            else:
-                width_before_next_break_point = 0
-
-            # 如果当前行放不下这个元素，换行
+            
+            # Check mixed char spacing (simplified for lookahead)
+            # strictly, we should check previous unit in buffer, but simplified here
+            
+            # 2. Determine Line Break
+            # If adding this unit (plus lookahead) exceeds box width...
+            # OR if logic enforces break
+            should_break = False
+            
             if not unit.is_hung_punctuation and (
-                (current_x + unit_width > box.x2)
-                or (
-                    use_english_line_break
-                    and current_x + unit_width + width_before_next_break_point > box.x2
-                )
-                or (
-                    unit.is_cannot_appear_in_line_end_punctuation
-                    and current_x + unit_width * 2 > box.x2
-                )
+                (current_line_width + total_unit_width > (box.x2 - box.x))
+                or (use_english_line_break and current_line_width + total_unit_width + width_lookahead > (box.x2 - box.x))
+                or (unit.is_cannot_appear_in_line_end_punctuation and current_line_width + total_unit_width * 2 > (box.x2 - box.x))
             ):
-                # 换行
-                current_x = box.x
-                if not current_line_heights:
-                    return [], False
-                max_height = max(current_line_heights)
-                mode_height = statistics.mode(current_line_heights)
+                 should_break = True
+            
+            if should_break:
+                # 3. Process the Buffered Line
+                if not line_units and not paragraph.first_line_indent:
+                     # Determine if single unit is too wide to fit at all? 
+                     # For now, if line is empty, we force at least one unit unless it's huge
+                     pass
+                
+                if not line_units:
+                     # Force at least one unit to prevent infinite loop if a word is too long
+                     line_units.append(unit)
+                     current_line_width += total_unit_width
+                     idx += 1
+                
+                # FLUSH LINE
+                processed_units, next_y_top = self._flush_line(
+                    line_units, box, current_y_top, scale, line_skip, FORMULA_PADDING, paragraph.first_line_indent and len(typeset_units)==0
+                )
+                
+                typeset_units.extend(processed_units)
+                
+                # Check vertical overflow
+                # Logic: next_y_top is the TOP of the NEXT line.
+                # If the BOTTOM of the CURRENT line was below box.y, we have an issue.
+                # But _flush_line calculates positions.
+                # Let's verify processed_units positions.
+                if processed_units:
+                    lowest_y = min(u.box.y for u in processed_units)
+                    if lowest_y < box.y:
+                        all_units_fit = False
+                
+                # Reset for next line
+                current_y_top = next_y_top
+                line_units = []
+                current_line_width = 0.0
+                
+                # Note: If we forced the unit into the line, idx was incremented.
+                # If we broke BEFORE the unit, idx is valid for next line.
+            else:
+                # Add to buffer
+                line_units.append(unit)
+                current_line_width += total_unit_width
+                
+                # Add mixed-char spacing approximation
+                if len(line_units) > 1:
+                     last = line_units[-2]
+                     curr = line_units[-1]
+                     if last.is_cjk_char ^ curr.is_cjk_char and not last.is_space and not curr.is_space: # Simplified
+                          current_line_width += space_width * 0.5
+                
+                idx += 1
 
-                current_y -= max(mode_height * line_skip, max_height * 1.05)
-                line_ys.append(current_y)
-                line_height = 0.0
-                current_line_heights = []  # 清空当前行高度列表
-
-                # 检查是否超出底部边界
-                # if current_y - unit_height < box.y:
-                if current_y < box.y:
+        # 4. Flush Remaining Units (Last Line)
+        if line_units:
+             processed_units, next_y_top = self._flush_line(
+                    line_units, box, current_y_top, scale, line_skip, FORMULA_PADDING, paragraph.first_line_indent and len(typeset_units)==0
+                )
+             typeset_units.extend(processed_units)
+             if processed_units:
+                lowest_y = min(u.box.y for u in processed_units)
+                if lowest_y < box.y:
                     all_units_fit = False
-                    # 这里不要 break，继续排版剩余内容
-
-                if unit.is_space:
-                    line_height = max(line_height, unit_height)
-                    continue
-
-            # 放置当前单元
-            relocated_unit = unit.relocate(current_x, current_y, scale)
-            typeset_units.append(relocated_unit)
-
-            # 添加当前单元的高度到当前行高度列表
-            if not unit.is_space:
-                current_line_heights.append(unit_height)
-
-            prev_x = current_x
-            # 更新 x 坐标
-            current_x = relocated_unit.box.x2
-            if prev_x > current_x:
-                logger.warning(f"坐标回绕！！！TypesettingUnit: {unit.box}, ")
-
-            last_unit = relocated_unit
 
         return typeset_units, all_units_fit
+
+    def _flush_line(self, line_units, box, y_top, scale, line_skip, formula_padding, is_first_line):
+        """Helper to position units in a single line and calculate next Y position."""
+        if not line_units:
+            return [], y_top
+
+        # Calculate line stats
+        heights = [u.height * scale for u in line_units if not u.is_space]
+        if not heights:
+             heights = [10.0 * scale] # Fallback
+        
+        max_height = max(heights)
+        try:
+            mode_height = statistics.mode(heights)
+        except:
+            mode_height = sum(heights)/len(heights)
+            
+        # Determine Baseline Y for this line
+        # We align text to the bottom-left.
+        # But symbols might go lower (descent).
+        # Standard approach: y_bottom = y_top - max_height.
+        # But we want consistent line spacing.
+        
+        # Let's say y_top is the ascender line of the previous line (or box top).
+        # We want to place the current line such that its CONTENT fits below y_top.
+        # current_y_bottom = y_top - max_height
+        
+        # HOWEVER, the surrounding logic expects strict line spacing.
+        # Gap = max(mode_height * line_skip, max_height * 1.05)
+        # We need to subtract this gap from the PREVIOUS BASELINE to get CURRENT BASELINE?
+        # Or subtract height from y_top?
+        
+        # Let's use the line_skip logic to determine the separation from the PREVIOUS line.
+        # But for the FIRST line, we just drop by max_height.
+        
+        if is_first_line:
+             current_y_bottom = y_top - max_height
+        else:
+             # Calculate gap based on this line's content (to accommodate tall formulas) including the previous line?
+             # No, standard leading is based on current font size.
+             spacing = max(mode_height * line_skip, max_height * 1.05)
+             # Wait, y_top passed here is the TOP of the *available space*? 
+             # No, in the loop: current_y_top = next_y_top.
+             # Ideally y_top is the Y-coordinate of the BASELINE of the previous line?
+             # The original code maintained `current_y` as the baseline position.
+             
+             # If `y_top` is the previous baseline:
+             current_y_bottom = y_top - spacing
+        
+        # Place units
+        current_x = box.x
+        
+        # First line indent
+        font_sizes = [u.font_size for u in line_units if u.font_size] or [10.0]
+        base_fs = font_sizes[0] if font_sizes else 10.0
+        space_w = self.font_mapper.base_font.char_lengths(" ", base_fs * scale)[0]
+        
+        if is_first_line:
+             indent = (base_fs * scale * 0.5) * 4
+             current_x += indent
+
+        relocated_units = []
+        last_unit = None
+        
+        for unit in line_units:
+            # Formula Padding
+            if unit.formular:
+                current_x += formula_padding
+
+            # Handle CJK spacing
+            if (last_unit and last_unit.is_cjk_char ^ unit.is_cjk_char
+                and not last_unit.mixed_character_blacklist
+                and not unit.mixed_character_blacklist
+                and not unit.is_space and not last_unit.is_space
+                and last_unit.try_get_unicode() not in ["。", "！", "？", "；", "：", "，"]):
+                 current_x += space_w * 0.5
+            
+            # Relocate
+            # Note: unit.relocate(x, y, s) uses y as the BOTTOM-LEFT corner.
+            # So passing current_y_bottom works.
+            new_unit = unit.relocate(current_x, current_y_bottom, scale)
+            relocated_units.append(new_unit)
+            
+            last_unit = new_unit
+            current_x = new_unit.box.x2
+            
+            if unit.formular:
+                current_x += formula_padding
+
+        return relocated_units, current_y_bottom
 
     def create_typesetting_units(
         self,

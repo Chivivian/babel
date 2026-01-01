@@ -164,14 +164,24 @@ def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: 
         "--openai-model", model,
         "--openai-api-key", api_key,
         "--pool-max-workers", str(kwargs.get("pool_max_workers", 20)),
-        "--output", str(output_dir.absolute())
+        "--output", str(output_dir.absolute()),
+        "--skip-curve-render",  # Always skip curve rendering to avoid blue lines
     ]
+
+    if kwargs.get("primary_font_family"):
+        cmd.extend(["--primary-font-family", kwargs.get("primary_font_family")])
     
     if kwargs.get("fast"):
+        # Fast mode: skip scanned detection and graphic element processing
         cmd.extend([
             "--skip-scanned-detection",
-            "--skip-curve-render",
             "--disable-graphic-element-process"
+        ])
+    else:
+        # Quality mode: enable table translation and remove decorative lines
+        cmd.extend([
+            "--translate-table-text",        # Enable table text translation (experimental)
+            "--remove-non-formula-lines",    # Remove decorative lines that aren't formulas
         ])
     
     try:
@@ -237,6 +247,7 @@ Examples:
     parser.add_argument("--model", type=str, default="gpt-4o-mini", help="OpenAI model to use (default: gpt-4o-mini)")
     parser.add_argument("--workers", type=int, default=20, help="Number of parallel workers (default: 20)")
     parser.add_argument("--fast", action="store_true", help="Enable maximum speed optimizations")
+    parser.add_argument("--font-family", type=str, choices=["serif", "sans-serif", "script"], help="Primary font family to use (e.g. serif)")
     parser.add_argument("--list-languages", action="store_true", help="List all available language codes")
     
     args = parser.parse_args()
@@ -304,7 +315,8 @@ Examples:
                           watermark=not args.no_watermark, 
                           model=args.model, 
                           pool_max_workers=args.workers,
-                          fast=args.fast):
+                          fast=args.fast,
+                          primary_font_family=args.font_family):
             successful.append(lang_code)
         else:
             failed.append(lang_code)

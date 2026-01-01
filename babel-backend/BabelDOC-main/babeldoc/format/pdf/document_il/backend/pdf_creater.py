@@ -642,11 +642,16 @@ class PDFCreater:
         render_units = []
 
         # Collect all characters (from page and paragraphs)
+        # Only use original page.pdf_character if there are no translated paragraphs
+        # When paragraphs exist, they contain the translated text that replaces the original
         chars = []
-        if page.pdf_character:
+        if page.pdf_paragraph:
+            # Use translated paragraph characters only
+            for paragraph in page.pdf_paragraph:
+                chars.extend(self.render_paragraph_to_char(paragraph))
+        elif page.pdf_character:
+            # No paragraphs, use original characters
             chars.extend(page.pdf_character)
-        for paragraph in page.pdf_paragraph:
-            chars.extend(self.render_paragraph_to_char(paragraph))
 
         # Convert characters to render units
         for i, char in enumerate(chars):

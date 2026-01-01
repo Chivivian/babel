@@ -621,10 +621,10 @@ JP_FONT_FAMILY = {
 
 EN_FONT_FAMILY = {
     "script": [
-        "NotoSans-Italic.ttf",
-        "NotoSans-BoldItalic.ttf",
         "NotoSerif-Italic.ttf",
         "NotoSerif-BoldItalic.ttf",
+        "NotoSans-Italic.ttf",
+        "NotoSans-BoldItalic.ttf",
     ],
     "normal": [
         "NotoSerif-Regular.ttf",
@@ -637,7 +637,7 @@ EN_FONT_FAMILY = {
         "GoNotoKurrent-Bold.ttf",
     ],
     "base": [
-        "NotoSans-Regular.ttf",
+        "NotoSerif-Regular.ttf",
     ],
 }
 

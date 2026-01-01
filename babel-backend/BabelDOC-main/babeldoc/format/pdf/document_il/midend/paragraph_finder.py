@@ -462,6 +462,26 @@ class ParagraphFinder:
             char_area = (char_box.x2 - char_box.x) * (char_box.y2 - char_box.y)
             is_small_char = char_area < median_char_area * 0.05
 
+            # Get the last character added to the current paragraph for newline detection
+            last_added_char = None
+            if current_paragraph and current_paragraph.pdf_paragraph_composition:
+                last_comp = current_paragraph.pdf_paragraph_composition[-1]
+                if last_comp.pdf_character:
+                    last_added_char = last_comp.pdf_character
+                elif last_comp.pdf_line and last_comp.pdf_line.pdf_character:
+                    last_added_char = last_comp.pdf_line.pdf_character[-1]
+
+            is_newline = False
+            if last_added_char:
+                is_newline = Layout.is_newline(last_added_char, char)
+
+            # Check for list indicators: Bullet points or common list starts like "(", "[", or "-"
+            # We only treat them as list starts if they appear at the beginning of a line.
+            is_list_start_char = (
+                is_bullet_point(char)
+                or char.char_unicode in ["(", "[", "-", "–", "—"]
+            )
+
             is_new_paragraph = False
             if current_paragraph is None:
                 is_new_paragraph = True
@@ -486,8 +506,9 @@ class ParagraphFinder:
                         != char.xobj_id
                     )
                     or (
-                        is_bullet_point(char)
-                        and not current_paragraph.pdf_paragraph_composition
+                        # Break paragraph if it looks like a list item at the start of a line
+                        is_list_start_char
+                        and (is_newline or not current_paragraph.pdf_paragraph_composition)
                     )
                 ):
                     is_new_paragraph = True

@@ -195,6 +195,15 @@ class FontMapper:
         if normal_font_map_result is not None:
             return normal_font_map_result
 
+        # Relaxation: If strict match failed but we want BOLD, prioritize Bold over Serif/Sans.
+        # Try flipping the serif preference to see if we can find a bold font in the other family.
+        if bold:
+            relaxed_normal_result = self.map_in_type(
+                bold, italic, monospaced, not serif, char_unicode, "normal"
+            )
+            if relaxed_normal_result:
+                return relaxed_normal_result
+
         fallback_font_map_result = self.map_in_type(
             bold, italic, monospaced, serif, char_unicode, "fallback"
         )

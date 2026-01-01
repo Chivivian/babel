@@ -41,12 +41,223 @@ from babeldoc.format.pdf.document_il.utils.spatial_analyzer import (
 from babeldoc.format.pdf.translation_config import TranslationConfig
 
 
+# ============================================================================
+# EXPRESSION-LEVEL FORMULA DETECTION
+# These functions detect complete mathematical expressions as single units
+# rather than individual characters, preserving formula structure integrity.
+# ============================================================================
+
+def is_mathematical_operator(char_unicode: str) -> bool:
+    """Check if character is a mathematical operator that connects formula parts."""
+    if not char_unicode:
+        return False
+    # Mathematical operators that should keep expressions together
+    operators = {
+        '=', '+', '-', '×', '÷', '*', '/', '±', '∓', '≈', '≠', '≤', '≥',
+        '<', '>', '≪', '≫', '∝', '∼', '≡', '≅', '∈', '∉', '⊂', '⊃', '⊆', '⊇',
+        '∪', '∩', '∧', '∨', '→', '←', '↔', '⇒', '⇐', '⇔', '∀', '∃', '∂',
+        '∇', '∫', '∑', '∏', '√', '∞', '^', '_', '·', '°', '%',
+    }
+    return char_unicode in operators
+
+
+def is_formula_continuation_char(char_unicode: str, in_formula: bool) -> bool:
+    """Check if character should continue a formula expression."""
+    if not char_unicode:
+        return in_formula  # Keep dummy spaces if already in formula
+    
+    # Spaces continue formulas if we're already in one
+    if char_unicode.isspace():
+        return in_formula
+    
+    # Numbers are always part of formulas
+    if char_unicode.isdigit():
+        return True
+    
+    # Mathematical operators continue formulas
+    if is_mathematical_operator(char_unicode):
+        return True
+    
+    # Brackets continue formulas
+    if char_unicode in '()[]{}⟨⟩⌈⌉⌊⌋':
+        return True
+    
+    # Subscript/superscript indicators
+    if char_unicode in '₀₁₂₃₄₅₆₇₈₉⁰¹²³⁴⁵⁶⁷⁸⁹ₐₑₒₓₕₖₗₘₙₚₛₜ':
+        return True
+    
+    return False
+
+
+def should_extend_formula_boundary(chars: list, start_idx: int, end_idx: int, 
+                                   look_direction: str) -> int:
+    """
+    Check if formula boundary should be extended to include adjacent characters.
+    This ensures complete expressions like "T₀₁ = 846.06K" stay together.
+    
+    Args:
+        chars: List of (PdfCharacter, is_formula, is_corner_mark) tuples
+        start_idx: Current formula start index
+        end_idx: Current formula end index  
+        look_direction: 'left' or 'right'
+    
+    Returns:
+        New boundary index (extended if needed)
+    """
+    if look_direction == 'left' and start_idx > 0:
+        # Look left for characters that should be part of formula
+        prev_idx = start_idx - 1
+        prev_char, prev_is_formula, prev_is_corner = chars[prev_idx]
+        prev_unicode = prev_char.char_unicode if prev_char else None
+        
+        # Don't extend past sentence boundaries
+        if prev_unicode and prev_unicode in '.!?;:':
+            return start_idx
+            
+        # Include adjacent variables (single letters before formula)
+        if prev_unicode and len(prev_unicode) == 1:
+            if prev_unicode.isalpha() and not prev_unicode.isspace():
+                # Check if this letter is likely a variable (followed by subscript/number)
+                if end_idx > start_idx:
+                    first_formula_char = chars[start_idx][0]
+                    if first_formula_char and first_formula_char.char_unicode:
+                        first_unicode = first_formula_char.char_unicode
+                        # If formula starts with subscript/number, include preceding letter
+                        if first_unicode in '₀₁₂₃₄₅₆₇₈₉0123456789':
+                            return prev_idx
+        
+        # Include mathematical operators that connect expressions
+        if is_mathematical_operator(prev_unicode):
+            return prev_idx
+            
+    elif look_direction == 'right' and end_idx < len(chars):
+        # Look right for characters that should be part of formula
+        next_idx = end_idx
+        if next_idx < len(chars):
+            next_char, next_is_formula, next_is_corner = chars[next_idx]
+            next_unicode = next_char.char_unicode if next_char else None
+            
+            # Include subscripts/superscripts that follow
+            if next_is_corner:
+                return end_idx + 1
+                
+            # Include unit suffixes (K, m, s, etc.) that directly follow numbers
+            if next_unicode and len(next_unicode) == 1:
+                if next_unicode.isalpha() and not next_unicode.isspace():
+                    # Check if preceded by a number
+                    if end_idx > 0:
+                        prev_char = chars[end_idx - 1][0]
+                        if prev_char and prev_char.char_unicode:
+                            if prev_char.char_unicode.isdigit():
+                                return end_idx + 1
+            
+            # Include mathematical operators
+            if is_mathematical_operator(next_unicode):
+                return end_idx + 1
+    
+    return start_idx if look_direction == 'left' else end_idx
+
+
+def group_formula_expressions(tagged_chars: list) -> list:
+    """
+    Group consecutive formula characters into complete expressions.
+    This is the core of expression-level detection.
+    
+    Args:
+        tagged_chars: List of (PdfCharacter, is_formula, is_corner_mark) tuples
+    
+    Returns:
+        List of (start_idx, end_idx, is_formula) tuples representing expression boundaries
+    """
+    if not tagged_chars:
+        return []
+    
+    expressions = []
+    i = 0
+    
+    while i < len(tagged_chars):
+        char, is_formula, is_corner = tagged_chars[i]
+        
+        if is_formula:
+            # Start of a formula expression
+            start_idx = i
+            end_idx = i + 1
+            
+            # Extend right to include connected formula chars
+            while end_idx < len(tagged_chars):
+                next_char, next_is_formula, next_is_corner = tagged_chars[end_idx]
+                next_unicode = next_char.char_unicode if next_char else None
+                
+                # Continue if it's a formula char
+                if next_is_formula:
+                    end_idx += 1
+                    continue
+                
+                # Continue if it's a connector (space within formula, operator)
+                if is_formula_continuation_char(next_unicode, True):
+                    # But stop at multiple spaces
+                    if next_unicode and next_unicode.isspace():
+                        if end_idx + 1 < len(tagged_chars):
+                            after_space = tagged_chars[end_idx + 1][0]
+                            if after_space and after_space.char_unicode:
+                                if not after_space.char_unicode.isspace():
+                                    if tagged_chars[end_idx + 1][1]:  # Next is formula
+                                        end_idx += 1
+                                        continue
+                    break
+                else:
+                    break
+                end_idx += 1
+            
+            # Try to extend boundaries to capture complete expressions
+            # Look left for variable names
+            new_start = should_extend_formula_boundary(
+                tagged_chars, start_idx, end_idx, 'left'
+            )
+            # Keep extending left if we found something
+            while new_start < start_idx:
+                start_idx = new_start
+                new_start = should_extend_formula_boundary(
+                    tagged_chars, start_idx, end_idx, 'left'
+                )
+            
+            # Look right for unit suffixes
+            new_end = should_extend_formula_boundary(
+                tagged_chars, start_idx, end_idx, 'right'
+            )
+            while new_end > end_idx:
+                end_idx = new_end
+                new_end = should_extend_formula_boundary(
+                    tagged_chars, start_idx, end_idx, 'right'
+                )
+            
+            expressions.append((start_idx, end_idx, True))
+            i = end_idx
+        else:
+            # Non-formula character - add as text
+            start_idx = i
+            end_idx = i + 1
+            
+            # Group consecutive non-formula chars
+            while end_idx < len(tagged_chars):
+                if not tagged_chars[end_idx][1]:  # Not formula
+                    end_idx += 1
+                else:
+                    break
+            
+            expressions.append((start_idx, end_idx, False))
+            i = end_idx
+    
+    return expressions
+
+
 class StylesAndFormulas:
     stage_name = "Parse Formulas and Styles"
 
     def __init__(self, translation_config: TranslationConfig):
         self.translation_config = translation_config
         self.font_mapper = FontMapper(translation_config)
+
 
     def update_formula_data(self, formula: PdfFormula):
         update_formula_data(formula)
@@ -528,42 +739,35 @@ class StylesAndFormulas:
         line_index: int,
     ) -> list[PdfParagraphComposition]:
         """
-        Phase 2: Group consecutive characters with the same tag into new compositions.
+        Phase 2: Group characters into complete expressions using expression-level detection.
+        
+        This replaces simple character-by-character grouping with intelligent expression
+        detection that keeps complete formulas together (e.g., "T₀₁ = 846.06K").
         """
         if not tagged_chars:
             return []
 
+        # Use expression-level grouping instead of simple consecutive char grouping
+        expression_boundaries = group_formula_expressions(tagged_chars)
+        
         new_compositions = []
-        current_chars = []
-        current_tag = tagged_chars[0][1]
-        current_corner_mark_flags = []
-
-        for char, is_formula_tag, is_corner_mark in tagged_chars:
-            if is_formula_tag == current_tag:
-                current_chars.append(char)
-                current_corner_mark_flags.append(is_corner_mark)
-            else:
-                # Check if any character in current group is a corner mark
-                has_corner_mark = any(current_corner_mark_flags)
+        for start_idx, end_idx, is_formula in expression_boundaries:
+            # Extract characters for this expression
+            chars_in_range = [tagged_chars[i][0] for i in range(start_idx, end_idx)]
+            
+            # Check if any character in this group is a corner mark (subscript/superscript)
+            corner_marks_in_range = [tagged_chars[i][2] for i in range(start_idx, end_idx)]
+            has_corner_mark = any(corner_marks_in_range)
+            
+            if chars_in_range:
                 new_compositions.append(
                     self.create_composition(
-                        current_chars, current_tag, line_index, has_corner_mark
+                        chars_in_range, is_formula, line_index, has_corner_mark
                     ),
                 )
-                current_chars = [char]
-                current_tag = is_formula_tag
-                current_corner_mark_flags = [is_corner_mark]
-
-        if current_chars:
-            # Check if any character in final group is a corner mark
-            has_corner_mark = any(current_corner_mark_flags)
-            new_compositions.append(
-                self.create_composition(
-                    current_chars, current_tag, line_index, has_corner_mark
-                ),
-            )
 
         return new_compositions
+
 
     def process_page_formulas(self, page: Page):
         if not page.pdf_paragraph:
