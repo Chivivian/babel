@@ -176,6 +176,80 @@ class ParagraphFinder:
         max_y = max(char.visual_bbox.box.y2 for char in line.pdf_character)
         line.box = Box(min_x, min_y, max_x, max_y)
 
+    def should_preserve_line_structure(self, paragraph: PdfParagraph) -> bool:
+        """
+        Detect if a paragraph has structured content that should preserve line boundaries.
+        
+        This identifies nomenclatures, indices, glossaries, and similar content where
+        each line is a semantically independent unit (e.g., "c = absolute velocity").
+        
+        Heuristics:
+        1. Multiple short lines (average line length < 50 chars)
+        2. Lines don't end with sentence-ending punctuation
+        3. Lines have regular vertical spacing (list-like)
+        4. Lines start with symbols/single characters (index-like)
+        
+        Returns:
+            True if the paragraph should preserve line structure
+        """
+        if not paragraph.pdf_paragraph_composition:
+            return False
+        
+        # Extract lines from composition
+        lines = []
+        for comp in paragraph.pdf_paragraph_composition:
+            if comp.pdf_line and comp.pdf_line.pdf_character:
+                line_text = get_char_unicode_string(comp.pdf_line.pdf_character)
+                line_box = comp.pdf_line.box
+                if line_text.strip():
+                    lines.append((line_text, line_box))
+        
+        # Need at least 3 lines to detect structure
+        if len(lines) < 3:
+            return False
+        
+        # Heuristic 1: Average line length is short (< 50 chars)
+        avg_line_length = sum(len(text) for text, _ in lines) / len(lines)
+        if avg_line_length > 50:
+            return False
+        
+        # Heuristic 2: Most lines don't end with sentence punctuation
+        sentence_endings = sum(
+            1 for text, _ in lines 
+            if text.rstrip() and text.rstrip()[-1] in '.!?;:'
+        )
+        if sentence_endings > len(lines) * 0.5:
+            return False
+        
+        # Heuristic 3: Check for regular vertical spacing (list-like)
+        if len(lines) >= 3:
+            y_positions = [box.y for _, box in lines if box]
+            if len(y_positions) >= 3:
+                y_gaps = [
+                    abs(y_positions[i+1] - y_positions[i]) 
+                    for i in range(len(y_positions) - 1)
+                ]
+                if y_gaps:
+                    avg_gap = sum(y_gaps) / len(y_gaps)
+                    if avg_gap > 0:
+                        # Check if gaps are uniform (std dev < 20% of mean)
+                        variance = sum((g - avg_gap) ** 2 for g in y_gaps) / len(y_gaps)
+                        std_dev = variance ** 0.5
+                        if std_dev < avg_gap * 0.3:
+                            # Uniform spacing detected - likely a list/index
+                            return True
+        
+        # Heuristic 4: Lines start with short tokens (symbols, letters, numbers)
+        short_starts = sum(
+            1 for text, _ in lines 
+            if text.strip() and len(text.strip().split()[0]) <= 4
+        )
+        if short_starts > len(lines) * 0.6 and avg_line_length < 40:
+            return True
+        
+        return False
+
+
     def add_debug_info(self, page: Page):
         if not self.translation_config.debug:
             return
@@ -309,6 +383,9 @@ class ParagraphFinder:
         # 新阶段：设置段落的 renderorder 为所有组成部分中 renderorder 最小的
         self._set_paragraph_render_order(page)
 
+        # Detect structured paragraphs and set preserve_line_structure flag
+        self._detect_structured_paragraphs(page)
+
     def _set_paragraph_render_order(self, page: Page):
         """
         设置段落的 renderorder 为段落所有组成部分中 renderorder 最小的值
@@ -345,6 +422,62 @@ class ParagraphFinder:
             # 如果找到了有效的 renderorder，设置段落的 renderorder
             if min_render_order != 9999999999999999:
                 paragraph.render_order = min_render_order
+
+    def _detect_structured_paragraphs(self, page: Page):
+        """
+        Detect paragraphs with structured content and explode them into single-line paragraphs.
+        
+        By turning each line of a nomenclature/index into its own independent paragraph,
+         we ensure that the system naturally preserves the vertical layout and 
+        translates each entry as a distinct unit.
+        """
+        new_paragraphs = []
+        exploded_count = 0
+        
+        for paragraph in page.pdf_paragraph:
+            if self.should_preserve_line_structure(paragraph):
+                # Explode this paragraph!
+                logger.info(f"Exploding structured paragraph {paragraph.debug_id} into line-paragraphs.")
+                
+                # Each composition (line) becomes its own paragraph
+                for composition in paragraph.pdf_paragraph_composition:
+                    if composition.pdf_line:
+                        # Create a new atomic paragraph for this line
+                        line_para = PdfParagraph(
+                            box=composition.pdf_line.box,
+                            pdf_style=paragraph.pdf_style,
+                            pdf_paragraph_composition=[composition],
+                            xobj_id=paragraph.xobj_id,
+                            unicode=get_char_unicode_string(composition.pdf_line.pdf_character),
+                            layout_label=paragraph.layout_label,
+                            layout_id=paragraph.layout_id,
+                            render_order=paragraph.render_order,
+                            debug_id=f"{paragraph.debug_id}_L{composition.pdf_line.box.y:.1f}"
+                        )
+                        # Mark it to skip reflow during typesetting
+                        line_para.preserve_line_structure = True
+                        # Backup original composition for restoration if needed (e.g. formulas)
+                        line_para.original_composition = [composition]
+                        new_paragraphs.append(line_para)
+                    else:
+                        # Keep non-line compositions as-is
+                        new_paragraphs.append(PdfParagraph(
+                            box=paragraph.box, # Fallback to parent box
+                            pdf_style=paragraph.pdf_style,
+                            pdf_paragraph_composition=[composition],
+                            xobj_id=paragraph.xobj_id,
+                            unicode=paragraph.unicode,
+                            layout_label=paragraph.layout_label,
+                            render_order=paragraph.render_order,
+                            debug_id=f"{paragraph.debug_id}_C"
+                        ))
+                exploded_count += 1
+            else:
+                new_paragraphs.append(paragraph)
+        
+        if exploded_count > 0:
+            page.pdf_paragraph = new_paragraphs
+            logger.info(f"Exploded {exploded_count} structured paragraphs on page {page.page_number}.")
 
     def is_isolated_formula(self, char: PdfCharacter):
         return char.char_unicode in (
@@ -451,7 +584,7 @@ class ParagraphFinder:
                 char, page, layout_index, layout_map
             )
 
-            if not is_text_layout(char_layout) or self.is_isolated_formula(char):
+            if not is_text_layout(char_layout):
                 skip_chars.append(char)
                 continue
 

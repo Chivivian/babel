@@ -652,9 +652,18 @@ class PDFCreater:
         # PdfFormula composition items during the formula detection stage.
         chars = []
         if page.pdf_paragraph:
-            # Use translated paragraph characters only
+            # Use translated paragraph characters
             for paragraph in page.pdf_paragraph:
                 chars.extend(self.render_paragraph_to_char(paragraph))
+            
+            # ALSO include original characters that were skipped from paragraphs (like formulas)
+            # This is crucial for rendering scientific notation that wasn't translated
+            if page.pdf_character:
+                for char in page.pdf_character:
+                    # Check if this character is a formula based on formula_layout_id
+                    # 0 usually means not a formula, non-zero indicates a formula layout
+                    if getattr(char, 'formula_layout_id', 0) != 0:
+                        chars.append(char)
         elif page.pdf_character:
             # No paragraphs, use original characters
             chars.extend(page.pdf_character)

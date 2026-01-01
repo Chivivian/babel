@@ -1176,6 +1176,20 @@ class PdfParagraph:
             "type": "Attribute",
         },
     )
+    preserve_line_structure: bool | None = field(
+        default=None,
+        metadata={
+            "name": "preserveLineStructure",
+            "type": "Attribute",
+        },
+    )
+    original_composition: list[PdfParagraphComposition] | None = field(
+        default_factory=list,
+        metadata={
+            "name": "originalComposition",
+            "type": "Element",
+        },
+    )
 
 
 @dataclass(slots=True)

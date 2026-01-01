@@ -198,6 +198,42 @@ def get_paragraph_length_except(
 
 
 def get_paragraph_unicode(paragraph: PdfParagraph) -> str:
+    """
+    Get the Unicode text content of a paragraph.
+    
+    If paragraph.preserve_line_structure is True, line breaks are preserved
+    to maintain the structure of indices/nomenclatures for line-by-line translation.
+    """
+    # Check if we should preserve line structure
+    preserve_lines = getattr(paragraph, 'preserve_line_structure', False)
+    
+    if preserve_lines:
+        # Preserve line breaks for structured content
+        lines = []
+        for composition in paragraph.pdf_paragraph_composition:
+            if composition.pdf_line:
+                line_chars = composition.pdf_line.pdf_character
+                line_text = get_char_unicode_string(line_chars)
+                if line_text.strip():
+                    lines.append(line_text)
+            elif composition.pdf_formula:
+                # Formulas are kept as single unit
+                formula_text = get_char_unicode_string(composition.pdf_formula.pdf_character)
+                if formula_text.strip():
+                    lines.append(formula_text)
+            elif composition.pdf_same_style_characters:
+                char_text = get_char_unicode_string(
+                    composition.pdf_same_style_characters.pdf_character
+                )
+                if char_text.strip():
+                    lines.append(char_text)
+            elif composition.pdf_character:
+                char_text = get_char_unicode_string([composition.pdf_character])
+                if char_text.strip():
+                    lines.append(char_text)
+        return '\n'.join(lines)
+    
+    # Original behavior: flatten all characters
     chars = []
     for composition in paragraph.pdf_paragraph_composition:
         if composition.pdf_line:
@@ -794,7 +830,6 @@ def get_character_layout(
     #
     # if non_hybrid_table_label:
     #     return non_hybrid_table_label
-
     return matching_layouts[0]["layout"]
 
 

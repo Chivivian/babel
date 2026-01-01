@@ -23,6 +23,7 @@ from babeldoc.format.pdf.document_il import il_version_1
 from babeldoc.format.pdf.document_il.utils.fontmap import FontMapper
 from babeldoc.format.pdf.document_il.utils.formular_helper import update_formula_data
 from babeldoc.format.pdf.document_il.utils.layout_helper import box_to_tuple
+from babeldoc.format.pdf.document_il.utils.layout_helper import get_char_unicode_string
 from babeldoc.format.pdf.translation_config import TranslationConfig
 from babeldoc.format.pdf.translation_config import WatermarkOutputMode
 
@@ -764,6 +765,7 @@ class TypesettingUnit:
             update_formula_data(new_formula)
 
             new_tu = TypesettingUnit(formular=new_formula)
+            new_tu.can_passthrough_cache = True
             new_tu.try_resue_cache(self)
             return new_tu
 
@@ -946,8 +948,9 @@ class TypesettingUnit:
                 debug_info=self.debug_info,
             )
             return [new_char], [], []
+        elif self.formular:
+            return self.passthrough()
         else:
-            logger.error(f"Unknown typesetting unit. TypesettingUnit: {self}. ")
             logger.error(f"Unknown typesetting unit. TypesettingUnit: {self}. ")
             return [], [], []
 
@@ -1420,6 +1423,11 @@ class Typesetting:
             il_version_1.PdfFont | dict[str, il_version_1.PdfFont],
         ],
     ):
+        # Check for preserve_line_structure flag for structured content
+        if getattr(paragraph, 'preserve_line_structure', False):
+            self._render_structured_paragraph(paragraph, page, fonts)
+            return
+        
         typesetting_units = self.create_typesetting_units(paragraph, fonts)
         # 如果所有单元都可以直接传递，则直接传递
         if all(unit.can_passthrough for unit in typesetting_units):
@@ -1441,6 +1449,97 @@ class Typesetting:
 
             # 重排版后，重新设置段落各字符的 render order
             self._update_paragraph_render_order(paragraph)
+
+
+    def _render_structured_paragraph(
+        self,
+        paragraph: il_version_1.PdfParagraph,
+        page: il_version_1.Page,
+        fonts: dict[
+            str | int,
+            il_version_1.PdfFont | dict[str, il_version_1.PdfFont],
+        ],
+    ):
+        """
+        Render an atomic structured paragraph (a single line from an exploded section).
+        
+        This ensures that even if the translated text is sightly longer/shorter,
+        it stays on the same vertical line.
+        """
+        if not paragraph.pdf_paragraph_composition:
+            return
+            
+        # RESTORE FORMULA LOGIC:
+        # If this paragraph has a backup original composition and looks like a formula,
+        # restore it to preserve exact rendering (fonts, positions, symbols).
+        if hasattr(paragraph, 'original_composition') and paragraph.original_composition:
+            # Check if it looks like a formula
+            orig_text = ""
+            for comp in paragraph.original_composition:
+                if comp.pdf_line:
+                    orig_text += get_char_unicode_string(comp.pdf_line.pdf_character)
+                elif comp.pdf_formula:
+                    orig_text += get_char_unicode_string(comp.pdf_formula.pdf_character)
+            
+            # Improved heuristic: check if it contains a PdfFormula composition directly,
+            # or if the text contains math indicators.
+            has_formula_comp = any(comp.pdf_formula is not None for comp in paragraph.original_composition)
+            is_formula = has_formula_comp or "=" in orig_text or (len(orig_text) < 15 and any(c.isdigit() for c in orig_text))
+            
+            if is_formula:
+                paragraph.pdf_paragraph_composition = paragraph.original_composition
+                paragraph.scale = 1.0
+                self._update_paragraph_render_order(paragraph)
+                return
+
+        # For exploded paragraphs, we usually have a single composition which is a PdfLine
+        # Use a high scale to avoid reflow unless absolutely necessary
+        typesetting_units = self.create_typesetting_units(paragraph, fonts)
+        
+        # If the line is short enough, we can just pass it through at original position
+        # but with new translated characters.
+        # We'll use initial_scale=1.0 and allow horizontal fit but NO vertical flow outside box.
+        paragraph.pdf_paragraph_composition = []
+        
+        # We use a very strict box that matches the original line height
+        self.retypeset_with_precomputed_scale(
+            paragraph, page, typesetting_units, 1.0
+        )
+        
+        self._update_paragraph_render_order(paragraph)
+        return
+
+    def _create_typesetting_unit_from_char(
+        self,
+        char: il_version_1.PdfCharacter,
+        fonts: dict,
+    ) -> TypesettingUnit | None:
+        """Create a TypesettingUnit from a single character."""
+        if not char or not char.char_unicode:
+            return None
+        
+        # Get font for this character
+        font_id = char.font_id
+        xobj_id = getattr(char, 'xobj_id', None)
+        
+        original_font = None
+        if xobj_id is not None and xobj_id in fonts:
+            xobj_fonts = fonts[xobj_id]
+            if isinstance(xobj_fonts, dict) and font_id in xobj_fonts:
+                original_font = xobj_fonts[font_id]
+        elif font_id in fonts:
+            original_font = fonts[font_id]
+        
+        return TypesettingUnit(
+            char=char,
+            unicode=char.char_unicode,
+            font=self.font_mapper.base_font,
+            original_font=original_font,
+            font_size=char.font_size or 10.0,
+            style=char.pdf_style,
+            xobj_id=xobj_id,
+            debug_info=getattr(char, 'debug_info', False),
+        )
 
     def _get_width_before_next_break_point(
         self, typesetting_units: list[TypesettingUnit], scale: float
