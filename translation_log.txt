@@ -250,3 +250,47 @@
 [2026-01-01T20:36:38.336708] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
   Languages: nl
   Successful: 1, Failed: 0
+
+[2026-01-02T02:44:03.773479] Translated Small, Low-Cost, Expendable Turbojet Engine.pdf
+  Languages: es, fr
+  Successful: 2, Failed: 0
+
+[2026-01-02T02:47:45.632670] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: tr
+  Successful: 1, Failed: 0
+
+[2026-01-02T02:49:58.411045] Translated Small, Low-Cost, Expendable Turbojet Engine.pdf
+  Languages: tr
+  Successful: 1, Failed: 0
+
+[2026-01-02T02:51:31.702886] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: tr
+  Successful: 1, Failed: 0
+
+[2026-01-02T03:05:00.050648] Translated Small, Low-Cost, Expendable Turbojet Engine.pdf
+  Languages: es, fr, de
+  Successful: 1, Failed: 2
+
+[2026-01-02T14:24:28.532520] Translated Small, Low-Cost, Expendable Turbojet Engine.pdf
+  Languages: ar
+  Successful: 0, Failed: 1
+
+[2026-01-02T14:26:24.682688] Translated Small, Low-Cost, Expendable Turbojet Engine.pdf
+  Languages: ar
+  Successful: 1, Failed: 0
+
+[2026-01-02T14:27:45.101705] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: ar
+  Successful: 1, Failed: 0
+
+[2026-01-02T14:27:54.982815] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: ar
+  Successful: 1, Failed: 0
+
+[2026-01-02T14:29:27.050388] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: ar
+  Successful: 1, Failed: 0
+
+[2026-01-02T14:30:19.087824] Translated Design and Manufacture of a mini-turbojet.pdf
+  Languages: ar
+  Successful: 1, Failed: 0

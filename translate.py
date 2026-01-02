@@ -19,6 +19,8 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 # Fix Windows console encoding for emoji/unicode
 if sys.platform == "win32":
@@ -164,6 +166,7 @@ def translate_file(input_file: Path, lang_code: str, output_dir: Path, api_key: 
         "--openai-model", model,
         "--openai-api-key", api_key,
         "--pool-max-workers", str(kwargs.get("pool_max_workers", 20)),
+        "--qps", str(kwargs.get("qps", kwargs.get("pool_max_workers", 20))),
         "--output", str(output_dir.absolute()),
     ]
 
@@ -246,6 +249,7 @@ Examples:
     parser.add_argument("--no-watermark", action="store_true", help="Skip adding LunarTech watermark")
     parser.add_argument("--model", type=str, default="gpt-4o-mini", help="OpenAI model to use (default: gpt-4o-mini)")
     parser.add_argument("--workers", type=int, default=20, help="Number of parallel workers (default: 20)")
+    parser.add_argument("--qps", type=int, help="QPS limit for translation (default: same as workers)")
     parser.add_argument("--fast", action="store_true", help="Enable maximum speed optimizations")
     parser.add_argument("--font-family", type=str, choices=["serif", "sans-serif", "script"], help="Primary font family to use (e.g. serif)")
     parser.add_argument("--list-languages", action="store_true", help="List all available language codes")
@@ -310,13 +314,29 @@ Examples:
     successful = []
     failed = []
     
-    for lang_code in languages:
-        if translate_file(input_file, lang_code, output_dir, api_key, 
-                          watermark=not args.no_watermark, 
-                          model=args.model, 
-                          pool_max_workers=args.workers,
-                          fast=args.fast,
-                          primary_font_family=args.font_family):
+    print(f"\n🚀 Starting translation of {len(languages)} languages...")
+    
+    # We use ThreadPoolExecutor to run multiple 'babeldoc' processes in parallel.
+    # Each process handles one language.
+    max_parallel_languages = min(len(languages), 4) # Don't overwhelm the system
+    
+    def run_translation(lc):
+        res = translate_file(
+            input_file, lc, output_dir, api_key, 
+            watermark=not args.no_watermark, 
+            model=args.model, 
+            pool_max_workers=args.workers,
+            qps=args.qps or args.workers,
+            fast=args.fast,
+            primary_font_family=args.font_family
+        )
+        return lc, res
+
+    with ThreadPoolExecutor(max_workers=max_parallel_languages) as executor:
+        results = list(executor.map(run_translation, languages))
+    
+    for lang_code, res in results:
+        if res:
             successful.append(lang_code)
         else:
             failed.append(lang_code)

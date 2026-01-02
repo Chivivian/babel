@@ -612,15 +612,25 @@ class PDFCreater:
         for composition in paragraph.pdf_paragraph_composition:
             if composition.pdf_character:
                 chars.append(composition.pdf_character)
+            elif composition.pdf_line:
+                chars.extend(composition.pdf_line.pdf_character)
+            elif composition.pdf_same_style_characters:
+                chars.extend(composition.pdf_same_style_characters.pdf_character)
             elif composition.pdf_formula:
                 # Flatten formula: extract all characters from the formula
                 chars.extend(composition.pdf_formula.pdf_character)
+            elif composition.pdf_same_style_unicode_characters:
+                logger.debug(
+                    f"Skipping unformatted unicode composition in paragraph {paragraph.debug_id}. "
+                    f"This type should have been converted to PdfCharacter by the typesetter."
+                )
+                continue
             else:
                 logger.error(
                     f"Unknown composition type. "
                     f"This type only appears in the IL "
-                    f"after the translation is completed."
-                    f"During pdf rendering, this type is not supported."
+                    f"after the translation is completed. "
+                    f"During pdf rendering, this type is not supported. "
                     f"Composition: {composition}. "
                     f"Paragraph: {paragraph}. ",
                 )
@@ -654,6 +664,9 @@ class PDFCreater:
         if page.pdf_paragraph:
             # Use translated paragraph characters
             for paragraph in page.pdf_paragraph:
+                # Skip paragraphs that are marked to be abandoned (e.g. OCR artifacts, ghost text)
+                if getattr(paragraph, "layout_label", None) == "abandon":
+                    continue
                 chars.extend(self.render_paragraph_to_char(paragraph))
             
             # ALSO include original characters that were skipped from paragraphs (like formulas)
