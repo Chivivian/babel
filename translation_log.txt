@@ -477,3 +477,31 @@ df
 [2026-01-08T13:27:36.942378] Translated Design and Manufacture of a mini-turbojet.pdf
   Languages: pt
   Successful: 1, Failed: 0
+
+[2026-01-08T16:49:13.113437] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: ja
+  Successful: 1, Failed: 0
+
+[2026-01-08T16:51:14.551352] Translated Very Small Gas Turbine Jet Engines – Current Limits.pdf
+  Languages: zh
+  Successful: 0, Failed: 1
+
+[2026-01-08T16:51:15.901370] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: zh
+  Successful: 0, Failed: 1
+
+[2026-01-08T16:58:38.232101] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: ja
+  Successful: 1, Failed: 0
+
+[2026-01-08T17:11:21.239605] Translated Thermodynamic and Mechanical Design Concept For Micro-Turbojet to Micro-Turboshaft Engine Conversion.pdf
+  Languages: zh
+  Successful: 0, Failed: 1
+
+[2026-01-08T17:11:41.410348] Translated DESIGN AND FABRICATION OF JET ENGINE USING.pdf
+  Languages: zh
+  Successful: 1, Failed: 0
+
+[2026-01-08T17:14:02.781940] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
+  Languages: zh
+  Successful: 1, Failed: 0
