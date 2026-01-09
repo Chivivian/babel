@@ -1,7 +1,10 @@
 # Babel Platform Architecture - November 19, 2025
 
-**Full Power Edition**
-*(Exactly what is live at [babel.lunartech.ai](http://babel.lunartech.ai/) – 99.7% layout fidelity, 3.8–7.2 min average for 500-page handbooks)*
+**Full Power Edition – Production Architecture**
+*(Future deployment at [babel.lunartech.ai](http://babel.lunartech.ai/) – 99.7% layout fidelity, 3.8–7.2 min average for 500-page handbooks)*
+
+> [!NOTE]
+> This document describes the **production cloud architecture**. For local development and self-hosted deployment, Babel runs entirely on your own CPU and GPU. See [Worker Orchestration](./worker-orchestration.md) for local execution details.
 
 ## 1. System Architecture
 
