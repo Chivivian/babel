@@ -505,3 +505,7 @@ df
 [2026-01-08T17:14:02.781940] Translated Design, manufacturing and operation of a small turbojet-engine for research purposes.pdf
   Languages: zh
   Successful: 1, Failed: 0
+
+[2026-01-09T00:41:19.665232] Translated Machine_Learning_for_Drone_Enabled_IoT_Networks_Opportunities,_Developments.pdf
+  Languages: ru
+  Successful: 0, Failed: 1
