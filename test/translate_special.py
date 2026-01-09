@@ -7,7 +7,7 @@ from pathlib import Path
 # Configuration
 INPUT_FILE = Path("input/fractured glass, failing cameras.pdf")
 OUTPUT_DIR = Path("output")
-BABELDOC_DIR = Path("../handex-backend-antigravity/BabelDOC-main")
+BABELDOC_DIR = Path("../babel-backend/BabelDOC-main")
 
 # Unique title generation
 timestamp = int(time.time())
@@ -15,7 +15,7 @@ UNIQUE_FILENAME = f"fractured_glass_watermark_test_{timestamp}.pdf"
 TEMP_INPUT_FILE = INPUT_FILE.parent / UNIQUE_FILENAME
 
 # Load API Key from .env
-env_path = Path(__file__).parent.parent / "handex-backend-antigravity" / ".env"
+env_path = Path(__file__).parent.parent / "babel-backend" / ".env"
 if env_path.exists():
     with open(env_path, "r") as f:
         for line in f:

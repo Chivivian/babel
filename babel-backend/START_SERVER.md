@@ -1,10 +1,10 @@
-# How to Start the Handex Server
+# How to Start the Babel Server
 
 ## Quick Start
 
 1. **Open Terminal** and navigate to the server directory:
    ```bash
-   cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity
+   cd /Users/lunartech/Documents/Apps/Babel/Babel-backend-antigravity
    ```
 
 2. **Start the server**:
@@ -14,7 +14,7 @@
 
 3. **You should see**:
    ```
-   ✓ Static files mounted at /static from /Users/lunartech/Documents/Apps/Handex/dashboard
+   ✓ Static files mounted at /static from /Users/lunartech/Documents/Apps/Babel/dashboard
    INFO:     Started server process [xxxxx]
    INFO:     Waiting for application startup.
    INFO:     Application startup complete.
@@ -58,4 +58,5 @@ uvicorn server:app --reload --host 0.0.0.0 --port 8000
 - **DO NOT** open HTML files directly from the filesystem (`file://`)
 - You **MUST** access through the FastAPI server on port 8000
 - The server must stay running - don't close the terminal window
+
 

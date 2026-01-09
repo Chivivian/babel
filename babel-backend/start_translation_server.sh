@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Handex Translation Server Startup Script
+# Babel Translation Server Startup Script
 
 cd "$(dirname "$0")"
 
 echo "=========================================="
-echo "Handex Translation Server"
+echo "Babel Translation Server"
 echo "=========================================="
 echo ""
 
@@ -48,5 +48,5 @@ echo "Press CTRL+C to stop"
 echo "=========================================="
 echo ""
 
-python3 server.py
+python3 server.py > ../logs/translation_server.log 2>&1
 

@@ -1,4 +1,4 @@
-# Handex System - Quick Start Guide
+# Babel System - Quick Start Guide
 
 ## Prerequisites
 1. Set your OpenAI API key as an environment variable:
@@ -6,7 +6,7 @@
    export OPENAI_API_KEY="your-api-key-here"
 Open the following file in your browser:
 ```
-/Users/lunartech/Documents/Apps/Handex/dashboard/upload-page/index.html
+/Users/lunartech/Documents/Apps/Babel/dashboard/upload-page/index.html
 ```
 
 ## Using the Application
@@ -41,3 +41,4 @@ Open the following file in your browser:
 - `POST /api/translate` - Upload and translate document
   - Parameters: `file` (multipart), `target_language` (string)
 - `GET /api/download/{filename}` - Download translated file
+

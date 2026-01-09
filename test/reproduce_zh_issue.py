@@ -3,11 +3,11 @@ import subprocess
 from pathlib import Path
 
 # Configuration
-INPUT_FILE = Path("/Users/vaheaslanyan/Documents/Apps/babel/test/input/fractured glass, failing cameras.pdf")
+INPUT_FILE = Path("d:/Desktop D/Apps/babel-lunartech/babel/test/input/fractured glass, failing cameras.pdf")
 OUTPUT_DIR = Path("reproduce_output")
-BABELDOC_DIR = Path("../handex-backend-antigravity/BabelDOC-main")
-# Load API Key from .env (prioritize over env var to ensure new key is used)
-env_path = Path(__file__).parent.parent / "handex-backend-antigravity" / ".env"
+BABELDOC_DIR = Path("../babel-backend/BabelDOC-main")
+# Load API Key from .env
+env_path = Path(__file__).parent.parent / "babel-backend" / ".env"
 if env_path.exists():
     with open(env_path, "r") as f:
         for line in f:

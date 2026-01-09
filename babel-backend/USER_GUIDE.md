@@ -1,4 +1,4 @@
-# Handex Translation - User Guide & Troubleshooting
+# Babel Translation - User Guide & Troubleshooting
 
 ## ✅ Good News!
 Your translation **IS working**! The backend received your file and started translating it. The issue is that PDF translation takes time (usually 3-10 minutes for a research paper).
@@ -15,7 +15,7 @@ Based on the backend logs, I can see:
 
 ### Step 1: Make Sure Backend is Running
 ```bash
-cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity
+cd /Users/lunartech/Documents/Apps/Babel/Babel-backend-antigravity
 export OPENAI_API_KEY="your-api-key-here"
 python3 server.py
 ```
@@ -33,7 +33,7 @@ Visit: `http://localhost:8000`
 ### Step 4: Check for Translated File
 While waiting, you can manually check:
 ```bash
-cd /Users/lunartech/Documents/Apps/Handex/handex-backend-antigravity/Outputs
+cd /Users/lunartech/Documents/Apps/Babel/Babel-backend-antigravity/Outputs
 ls -lt  # Shows newest files first
 ```
 
@@ -95,3 +95,4 @@ I added better error handling and logging to the upload page:
 - ✅ Timeout warnings
 
 **Refresh the page (`localhost:8000`) to get the updated code with better debugging.**
+

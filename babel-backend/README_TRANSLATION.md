@@ -1,7 +1,7 @@
-# Handex Translation Backend Setup
+# Babel Translation Backend Setup
 
 ## Overview
-This backend connects the Handex dashboard to BabelDOC for document translation using GPT-4o.
+This backend connects the Babel dashboard to BabelDOC for document translation using GPT-4o.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ This backend connects the Handex dashboard to BabelDOC for document translation 
 ### 1. Install Dependencies
 
 ```bash
-cd handex-backend-antigravity
+cd Babel-backend-antigravity
 pip install fastapi uvicorn python-multipart
 ```
 
@@ -37,7 +37,7 @@ The backend uses BabelDOC which should be installed via `uv` in the `BabelDOC-ma
 ## Starting the Server
 
 ```bash
-cd handex-backend-antigravity
+cd Babel-backend-antigravity
 python3 server.py
 ```
 
@@ -100,8 +100,8 @@ View a translated PDF in browser.
 
 - **Model**: GPT-4o
 - **Workers**: 4 parallel workers
-- **Input**: `handex-backend-antigravity/Inputs/`
-- **Output**: `handex-backend-antigravity/Outputs/`
+- **Input**: `Babel-backend-antigravity/Inputs/`
+- **Output**: `Babel-backend-antigravity/Outputs/`
 
 ## Troubleshooting
 
@@ -116,4 +116,5 @@ View a translated PDF in browser.
 - Check server logs for BabelDOC errors
 - Verify the input file is a valid PDF/DOCX
 - Ensure BabelDOC is properly installed with `uv`
+
 

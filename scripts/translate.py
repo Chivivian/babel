@@ -36,7 +36,7 @@ BASE_DIR = Path(__file__).parent.resolve()
 BABELDOC_DIR = BASE_DIR / "babel-backend" / "BabelDOC-main"
 DEFAULT_OUTPUT_DIR = BASE_DIR / "babel-backend" / "Outputs"
 ASSETS_DIR = BASE_DIR / "assets"
-LOG_FILE = BASE_DIR / "translation_log.txt"
+LOG_FILE = BASE_DIR.parent / "logs" / "translation_log.txt"
 
 # 22 Popular Languages (ISO 639-1 codes)
 ALL_LANGUAGES = {

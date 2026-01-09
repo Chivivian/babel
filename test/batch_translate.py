@@ -4,12 +4,12 @@ import time
 from pathlib import Path
 
 # Configuration
-INPUT_FILE = Path("/Users/vaheaslanyan/Documents/Apps/babel/test/input/fractured glass, failing cameras.pdf")
-OUTPUT_DIR = Path("/Users/vaheaslanyan/Documents/Apps/babel/test/output")
-BABELDOC_DIR = Path("/Users/vaheaslanyan/Documents/Apps/babel/handex-backend-antigravity/BabelDOC-main")
+INPUT_FILE = Path("d:/Desktop D/Apps/babel-lunartech/babel/test/input/fractured glass, failing cameras.pdf")
+OUTPUT_DIR = Path("d:/Desktop D/Apps/babel-lunartech/babel/test/output")
+BABELDOC_DIR = Path("d:/Desktop D/Apps/babel-lunartech/babel/babel-backend/BabelDOC-main")
 
-# Load API Key from .env (prioritize over env var to ensure new key is used)
-env_path = Path(__file__).parent.parent / "handex-backend-antigravity" / ".env"
+# Load API Key from .env
+env_path = PATH_TO_BASE / "babel-backend" / ".env"
 if env_path.exists():
     with open(env_path, "r") as f:
         for line in f:

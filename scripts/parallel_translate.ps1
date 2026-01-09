@@ -8,6 +8,9 @@ $Languages = @{
 }
 $Model = "gpt-4o-mini"
 $Workers = 20
+$LogFile = "$(Get-Location)\..\logs\parallel_translate.log"
+
+"--- Parallel Translation Session Starting at $(Get-Date) ---" | Out-File -FilePath $LogFile -Append
 
 # Get all PDF files
 $Files = Get-ChildItem -Path $SourceDir -Filter "*.pdf"
@@ -38,6 +41,7 @@ foreach ($file in $Files) {
         )
         
         $proc = Start-Process -FilePath "python" -ArgumentList $args -NoNewWindow -PassThru
+        "Launched: $($file.Name) -> $lang (PID: $($proc.Id))" | Out-File -FilePath $LogFile -Append
         $processes += $proc
     }
 }

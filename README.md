@@ -46,11 +46,11 @@ Babel is the result of a visionary collaboration led by **LunarTech**. We have p
 - **Preserves Formatting**: Maintains the original layout, styling, and structure of your documents.
 - **Multi-Format Support**: Seamlessly handles PDF, DOCX, and other major document formats.
 - **Powered by LLMs**: Utilizes the latest advancements in Large Language Models for unmatched accuracy.
-- **Broad Language Support**: Supports translation across 22 major languages.
+- **Broad Language Support**: Supports translation across 50+ major languages.
 
 ## 🌐 Supported Languages
 
-Babel currently supports high-quality translation for the following 22 languages:
+Babel currently supports high-quality translation for over 50 languages:
 
 | | | |
 |:---:|:---:|:---:|
@@ -124,7 +124,7 @@ To run the Babel server locally, follow these steps:
 
 1.  **Navigate to the backend directory**:
     ```bash
-    cd handex-backend-antigravity
+    cd babel-backend
     ```
 
 2.  **Install dependencies**:
